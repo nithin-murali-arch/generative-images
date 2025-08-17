@@ -1,0 +1,46 @@
+# Core dependencies for Academic Multimodal LLM Experiment System
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+diffusers>=0.20.0
+accelerate>=0.20.0
+
+# UI and API
+gradio>=3.40.0
+fastapi>=0.100.0
+uvicorn>=0.22.0
+
+# Data processing and storage
+requests>=2.31.0
+aiohttp>=3.8.0
+beautifulsoup4>=4.12.0
+pillow>=10.0.0
+opencv-python>=4.8.0
+sqlite3  # Built-in with Python
+
+# Scientific computing
+numpy>=1.24.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+scikit-learn>=1.3.0
+
+# Hardware optimization
+xformers>=0.0.20  # Memory-efficient attention
+bitsandbytes>=0.41.0  # Quantization support
+
+# Experiment tracking (optional)
+wandb>=0.15.0
+
+# LoRA training dependencies
+peft>=0.5.0  # Parameter-Efficient Fine-Tuning
+safetensors>=0.3.0  # Safe tensor serialization
+datasets>=2.14.0  # Dataset loading and processing
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Platform-specific optimizations
+# Install with: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118

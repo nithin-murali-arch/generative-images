@@ -1,0 +1,19 @@
+{
+  "data_dir": "data",
+  "models_dir": "models",
+  "experiments_dir": "experiments",
+  "cache_dir": "cache",
+  "hardware_config": {
+    "vram_size": 4096,
+    "gpu_model": "NVIDIA GeForce GTX 1650",
+    "cpu_cores": 6,
+    "ram_size": 16322,
+    "cuda_available": true,
+    "optimization_level": "aggressive"
+  },
+  "default_compliance_mode": "research_safe",
+  "max_concurrent_generations": 1,
+  "memory_cleanup_threshold": 0.85,
+  "log_level": "INFO",
+  "log_file": "logs/system.log"
+}
