@@ -15,7 +15,7 @@ from dataclasses import asdict
 try:
     # Try relative imports first (when used as module)
     from .interfaces import (
-        GenerationRequest, GenerationResult, OutputType, ComplianceMode,
+        GenerationRequest, GenerationResult, ExperimentResult, OutputType, ComplianceMode,
         HardwareConfig, ConversationContext, SystemError
     )
     from .llm_controller import LLMController
@@ -32,7 +32,7 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).parent.parent))
     
     from core.interfaces import (
-        GenerationRequest, GenerationResult, OutputType, ComplianceMode,
+        GenerationRequest, GenerationResult, ExperimentResult, OutputType, ComplianceMode,
         HardwareConfig, ConversationContext, SystemError
     )
     from core.llm_controller import LLMController
@@ -475,19 +475,19 @@ class SystemIntegration:
             }
             
             # Create experiment result object
+            import datetime
+            import uuid
+            
             experiment_result = ExperimentResult(
-                success=result.success,
-                output_path=result.output_path,
-                generation_time=result.generation_time,
-                model_used=result.model_used,
-                quality_metrics=result.quality_metrics,
-                error_message=result.error_message,
-                compliance_info=result.compliance_info
+                experiment_id=str(uuid.uuid4()),
+                timestamp=datetime.datetime.now(),
+                request=request,
+                result=result,
+                notes=f"Auto-generated experiment for {request.output_type.value} generation. Tags: auto_generated, {request.output_type.value}"
             )
             
-            # Save experiment with notes
-            notes = f"Auto-generated experiment for {request.output_type.value} generation. Tags: auto_generated, {request.output_type.value}"
-            self.experiment_tracker.save_experiment(experiment_result, notes)
+            # Save experiment
+            self.experiment_tracker.save_experiment(experiment_result, experiment_result.notes)
             
             logger.debug(f"Experiment tracked for generation {generation_id}")
             

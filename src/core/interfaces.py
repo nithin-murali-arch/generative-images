@@ -76,6 +76,7 @@ class GenerationRequest:
     compliance_mode: ComplianceMode
     hardware_constraints: HardwareConfig
     context: ConversationContext
+    negative_prompt: Optional[str] = None
     additional_params: Dict[str, Any] = None
 
 

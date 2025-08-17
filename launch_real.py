@@ -7,8 +7,9 @@ import sys
 import os
 from pathlib import Path
 
-# Set PyTorch memory configuration to reduce fragmentation
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,max_split_size_mb:128'
+# Set PyTorch memory configuration for Windows compatibility
+# Note: expandable_segments is not supported on Windows
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
 # Add src to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -25,13 +26,13 @@ try:
     print("Initializing interface...")
     if interface.initialize():
         print("Interface initialized successfully!")
-        print("Launching Gradio interface with REAL AI generation on port 7861...")
+        print("Launching Gradio interface with REAL AI generation on port 15000...")
         
-        # Launch the interface on port 7861 to avoid conflicts
+        # Launch the interface on port 15000 to avoid conflicts
         interface.launch(
             share=False,
             server_name="127.0.0.1",
-            server_port=7861
+            server_port=15000
         )
     else:
         print("Failed to initialize interface")

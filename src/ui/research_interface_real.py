@@ -152,6 +152,37 @@ class RealImageGenerator:
                 logger.info(f"Model {model_name} already loaded")
                 return True
             
+            # CRITICAL: Check memory before loading new model
+            if torch.cuda.is_available():
+                device_props = torch.cuda.get_device_properties(0)
+                total_memory = device_props.total_memory / (1024**3)
+                allocated = torch.cuda.memory_allocated(0) / (1024**3)
+                reserved = torch.cuda.memory_reserved(0) / (1024**3)
+                free = total_memory - reserved
+                
+                logger.info(f"Memory before model loading: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
+                
+                # If memory usage is too high, force cleanup
+                if reserved > 2.0:  # More conservative for 4GB GPU
+                    logger.warning(f"High memory usage detected ({reserved:.2f}GB), forcing cleanup before model loading")
+                    self._cleanup_memory()
+                    
+                    # Check again after cleanup
+                    allocated = torch.cuda.memory_allocated(0) / (1024**3)
+                    reserved = torch.cuda.memory_reserved(0) / (1024**3)
+                    free = total_memory - reserved
+                    logger.info(f"After cleanup: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
+                    
+                    # If still too high, fail
+                    if reserved > 2.5:
+                        logger.error(f"Memory usage still too high after cleanup: {reserved:.2f}GB")
+                        return False
+                
+                # Ensure we have enough free memory for model loading
+                if free < 1.5:
+                    logger.error(f"Insufficient free memory for model loading: {free:.2f}GB")
+                    return False
+            
             # If we're switching models, unload the previous one to free memory
             if self.current_model and self.current_model != model_name:
                 logger.info(f"Switching from {self.current_model} to {model_name}, unloading previous model")
@@ -237,16 +268,16 @@ class RealImageGenerator:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             
-            # Check memory before generation
+            # CRITICAL: Check memory before generation to prevent 6GB allocation
             if torch.cuda.is_available():
                 allocated = torch.cuda.memory_allocated(0) / (1024**3)
                 reserved = torch.cuda.memory_reserved(0) / (1024**3)
                 free = torch.cuda.get_device_properties(0).total_memory / (1024**3) - reserved
                 logger.info(f"Memory before generation: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
                 
-                # CRITICAL: If we have less than 1GB free, force cleanup
-                if free < 1.0:
-                    logger.error(f"CRITICAL: Only {free:.2f}GB free memory available! Forcing aggressive cleanup...")
+                # CRITICAL: Prevent 6GB allocation on 4GB GPU
+                if reserved > 2.0:  # More conservative for 4GB GPU
+                    logger.error(f"CRITICAL: Memory usage too high ({reserved:.2f}GB), forcing aggressive cleanup...")
                     self._cleanup_memory()
                     # Check again after cleanup
                     allocated = torch.cuda.memory_allocated(0) / (1024**3)
@@ -254,10 +285,15 @@ class RealImageGenerator:
                     free = torch.cuda.get_device_properties(0).total_memory / (1024**3) - reserved
                     logger.info(f"After cleanup: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
                     
-                    # If still not enough memory, fail early
-                    if free < 0.5:
-                        logger.error(f"Still insufficient memory: {free:.2f}GB free. Cannot proceed with generation.")
-                        return None, {"error": f"Insufficient GPU memory. Only {free:.2f}GB available, need at least 0.5GB."}
+                    # If still too high, fail early
+                    if reserved > 2.5:
+                        logger.error(f"Memory usage still too high after cleanup: {reserved:.2f}GB")
+                        return None, {"error": f"GPU memory usage too high ({reserved:.2f}GB). Please restart the system."}
+                
+                # Ensure we have enough free memory
+                if free < 1.0:
+                    logger.error(f"Insufficient free memory: {free:.2f}GB")
+                    return None, {"error": f"Insufficient GPU memory. Only {free:.2f}GB free, need at least 1.0GB."}
                 
                 # Periodic memory cleanup
                 current_time = time.time()
@@ -265,11 +301,6 @@ class RealImageGenerator:
                     logger.info("Performing periodic memory cleanup")
                     self._cleanup_memory()
                     self.last_memory_cleanup = current_time
-                
-                # If memory usage is too high, force cleanup
-                if reserved > 3.0:  # Lowered threshold for GTX 1650
-                    logger.warning("High memory usage detected, forcing cleanup before generation")
-                    self._cleanup_memory()
             
             # Generate image
             logger.info(f"Generating image with prompt: {prompt[:50]}...")
@@ -411,27 +442,33 @@ class RealImageGenerator:
             return None, {"error": f"Fallback failed: {str(e)}"}
     
     def _cleanup_memory(self):
-        """Aggressive memory cleanup for CUDA memory management."""
+        """Windows-compatible aggressive memory cleanup for CUDA memory management."""
         if not torch.cuda.is_available():
             return
         
         try:
-            logger.info("Starting aggressive memory cleanup...")
+            logger.info("Starting Windows-compatible memory cleanup...")
             
             # Check initial memory status
             initial_allocated = torch.cuda.memory_allocated(0) / (1024**3)
             initial_reserved = torch.cuda.memory_reserved(0) / (1024**3)
             logger.info(f"Before cleanup: {initial_allocated:.2f}GB allocated, {initial_reserved:.2f}GB reserved")
             
-            # Clear PyTorch cache
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            
-            # Force garbage collection multiple times
-            import gc
-            for i in range(3):
-                gc.collect()
+            # Windows-specific: Multiple cleanup passes since expandable_segments not available
+            for cleanup_pass in range(5):  # More aggressive for Windows
+                logger.info(f"Memory cleanup pass {cleanup_pass + 1}/5")
+                
+                # Clear PyTorch cache
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                
+                # Force garbage collection
+                import gc
+                gc.collect()
+                
+                # Small delay to allow memory to be freed
+                import time
+                time.sleep(0.1)
             
             # Unload ALL pipelines to free maximum memory
             if self.pipelines:
@@ -442,9 +479,10 @@ class RealImageGenerator:
                 self.pipelines.clear()
                 self.current_model = None
             
-            # Clear cache again after unloading
+            # Final cleanup pass
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
+            gc.collect()
             
             # Check final memory status
             final_allocated = torch.cuda.memory_allocated(0) / (1024**3)
@@ -459,8 +497,10 @@ class RealImageGenerator:
             free_memory = total_memory - final_reserved
             logger.info(f"Total GPU memory: {total_memory:.2f}GB, Free: {free_memory:.2f}GB")
             
-            if free_memory < 1.0:
+            # Windows-specific: More conservative memory thresholds
+            if free_memory < 1.5:  # Increased threshold for Windows
                 logger.error(f"CRITICAL: Only {free_memory:.2f}GB free memory available!")
+                logger.warning("Windows platform requires more conservative memory management")
                         
         except Exception as e:
             logger.error(f"Memory cleanup failed: {e}")
@@ -534,10 +574,15 @@ class ResearchInterface:
         if AI_AVAILABLE and torch.cuda.is_available():
             logger.info("Performing initial memory cleanup...")
             try:
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-                import gc
-                gc.collect()
+                # Windows-specific memory management (expandable_segments not supported)
+                logger.info("Windows platform detected - using compatible memory management")
+                
+                # Multiple cleanup passes for Windows
+                for i in range(3):
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                    import gc
+                    gc.collect()
                 
                 allocated = torch.cuda.memory_allocated(0) / (1024**3)
                 reserved = torch.cuda.memory_reserved(0) / (1024**3)
@@ -546,6 +591,17 @@ class ResearchInterface:
                 
                 if free < 2.0:
                     logger.warning(f"Low initial free memory: {free:.2f}GB. Consider restarting system.")
+                    
+                # Set Windows-compatible memory limits - more aggressive for 4GB GPU
+                if hasattr(torch.cuda, 'set_per_process_memory_fraction'):
+                    torch.cuda.set_per_process_memory_fraction(0.6)  # Use only 60% of GPU memory (2.4GB max)
+                    logger.info("Set GPU memory limit to 60% for Windows compatibility (4GB GPU)")
+                    
+                # Set additional memory constraints
+                if hasattr(torch.cuda, 'empty_cache'):
+                    torch.cuda.empty_cache()
+                    logger.info("Initial cache cleared")
+                    
             except Exception as e:
                 logger.warning(f"Initial memory cleanup failed: {e}")
         
@@ -606,13 +662,15 @@ class ResearchInterface:
             
         except Exception as e:
             logger.error(f"Failed to launch interface: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _create_interface(self):
-        """Create the Gradio interface."""
-        with gr.Blocks(title="Academic Multimodal LLM Experiment System - Real Generation", theme=gr.themes.Soft()) as interface:
+        """Create the streamlined Gradio interface with image and video generation."""
+        with gr.Blocks(title="AI Content Generation System", theme=gr.themes.Soft()) as interface:
             
-            gr.Markdown("# Academic Multimodal LLM Experiment System")
-            gr.Markdown("**Real AI Image Generation** - Research-focused interface for multimodal content generation and experimentation.")
+            gr.Markdown("# AI Content Generation System")
+            gr.Markdown("**Generate images and videos with AI**")
             
             # Memory status display
             with gr.Row():
@@ -621,28 +679,47 @@ class ResearchInterface:
                     value="Checking memory...",
                     interactive=False
                 )
-                refresh_memory_btn = gr.Button("🔄 Refresh Memory Status")
+                refresh_memory_btn = gr.Button("🔄 Refresh Memory")
             
+            # Main interface with tabs
             with gr.Tabs():
                 # Image Generation Tab
-                with gr.Tab("Image Generation"):
+                with gr.Tab("🎨 Image Generation"):
                     self._create_image_generation_tab()
                 
                 # Video Generation Tab
-                with gr.Tab("Video Generation"):
+                with gr.Tab("🎬 Video Generation"):
                     self._create_video_generation_tab()
+            
+            # Simple system info
+            with gr.Accordion("System Information", open=False):
+                with gr.Row():
+                    hardware_info = gr.JSON(label="Hardware", value={})
+                    model_info = gr.JSON(label="Model Status", value={})
                 
-                # System Status Tab
-                with gr.Tab("System Status"):
-                    self._create_system_status_tab()
-                
-                # Experiments Tab
-                with gr.Tab("Experiments"):
-                    self._create_experiments_tab()
+                clear_cache_btn = gr.Button("🧹 Clear VRAM Cache")
             
             # Footer
             gr.Markdown("---")
-            gr.Markdown("*Academic Multimodal LLM Experiment System - Real AI Generation*")
+            gr.Markdown("*AI Content Generation System - Image and Video Generation*")
+        
+        # Event handlers for system functions
+        with interface:
+            refresh_memory_btn.click(
+                fn=self._refresh_memory_status,
+                outputs=[memory_status]
+            )
+            
+            clear_cache_btn.click(
+                fn=self._clear_vram_cache,
+                outputs=[hardware_info]
+            )
+            
+            # Auto-load first model and refresh status
+            interface.load(
+                fn=self._initialize_ui,
+                outputs=[memory_status, hardware_info, model_info]
+            )
         
         return interface
     
@@ -678,15 +755,8 @@ class ResearchInterface:
                     label="Model"
                 )
                 
-                compliance_dropdown = gr.Dropdown(
-                    choices=[mode.value for mode in ComplianceMode],
-                    value=ComplianceMode.RESEARCH_SAFE.value,
-                    label="Compliance Mode"
-                )
-                
                 with gr.Row():
-                    generate_btn = gr.Button("Generate Image", variant="primary")
-                    load_model_btn = gr.Button("Load Model", variant="secondary")
+                    generate_btn = gr.Button("🎨 Generate Image", variant="primary", size="lg")
                 
                 status_text = gr.Textbox(label="Status", interactive=False)
             
@@ -695,16 +765,10 @@ class ResearchInterface:
                 generation_info = gr.JSON(label="Generation Info")
         
         # Event handlers
-        load_model_btn.click(
-            fn=self._load_model,
-            inputs=[model_dropdown],
-            outputs=[status_text]
-        )
-        
         generate_btn.click(
             fn=self._generate_image,
             inputs=[prompt_input, negative_prompt_input, width_input, height_input, 
-                   steps_input, guidance_input, seed_input, model_dropdown, compliance_dropdown],
+                   steps_input, guidance_input, seed_input, model_dropdown],
             outputs=[output_image, generation_info, status_text]
         )
     
@@ -738,13 +802,7 @@ class ResearchInterface:
                     label="Video Model"
                 )
                 
-                compliance_dropdown = gr.Dropdown(
-                    choices=[mode.value for mode in ComplianceMode],
-                    value=ComplianceMode.RESEARCH_SAFE.value,
-                    label="Compliance Mode"
-                )
-                
-                generate_btn = gr.Button("Generate Video", variant="primary")
+                generate_btn = gr.Button("🎬 Generate Video", variant="primary", size="lg")
                 status_text = gr.Textbox(label="Status", interactive=False)
             
             with gr.Column(scale=1):
@@ -755,7 +813,7 @@ class ResearchInterface:
         generate_btn.click(
             fn=self._generate_video,
             inputs=[prompt_input, negative_prompt_input, width_input, height_input, 
-                   frames_input, fps_input, model_dropdown, compliance_dropdown],
+                   frames_input, fps_input, model_dropdown],
             outputs=[output_video, generation_info, status_text]
         )
     
@@ -836,22 +894,57 @@ class ResearchInterface:
     
     def _generate_image(self, prompt: str, negative_prompt: str, width: int, height: int, 
                        steps: int, guidance_scale: float, seed: Optional[int], 
-                       model_name: str, compliance_mode: str) -> Tuple[Optional[str], Dict[str, Any], str]:
+                       model_name: str) -> Tuple[Optional[str], Dict[str, Any], str]:
         """Generate an image based on the input parameters."""
         try:
             if not prompt.strip():
                 return None, {}, "Please enter a prompt"
             
+            # CRITICAL: Check memory before generation to prevent 6GB allocation
+            if torch.cuda.is_available():
+                device_props = torch.cuda.get_device_properties(0)
+                total_memory = device_props.total_memory / (1024**3)
+                allocated = torch.cuda.memory_allocated(0) / (1024**3)
+                reserved = torch.cuda.memory_reserved(0) / (1024**3)
+                free = total_memory - reserved
+                
+                logger.info(f"Memory before generation: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
+                
+                # If we're already using too much memory, force cleanup
+                if reserved > 2.0:  # More conservative for 4GB GPU
+                    logger.warning(f"High memory usage detected ({reserved:.2f}GB), forcing cleanup before generation")
+                    if hasattr(self, 'image_generator') and self.image_generator:
+                        self.image_generator._cleanup_memory()
+                    else:
+                        # Fallback cleanup
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                        import gc
+                        gc.collect()
+                    
+                    # Check again after cleanup
+                    allocated = torch.cuda.memory_allocated(0) / (1024**3)
+                    reserved = torch.cuda.memory_reserved(0) / (1024**3)
+                    free = total_memory - reserved
+                    logger.info(f"After cleanup: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
+                    
+                    # If still too high, fail early
+                    if reserved > 2.5:
+                        logger.error(f"Memory usage still too high after cleanup: {reserved:.2f}GB")
+                        return None, {}, f"GPU memory usage too high ({reserved:.2f}GB). Please restart the system."
+                
+                # Ensure we have enough free memory
+                if free < 1.0:
+                    logger.error(f"Insufficient free memory: {free:.2f}GB")
+                    return None, {}, f"Insufficient GPU memory. Only {free:.2f}GB free, need at least 1.0GB."
+            
             # Use system integration if available (preferred method)
             if self.system_integration:
                 logger.info("Using system integration for image generation")
                 
-                # Convert compliance mode string to enum
+                # Use default compliance mode
                 from src.core.interfaces import ComplianceMode
-                try:
-                    comp_mode = ComplianceMode(compliance_mode)
-                except ValueError:
-                    comp_mode = ComplianceMode.RESEARCH_SAFE
+                comp_mode = ComplianceMode.RESEARCH_SAFE
                 
                 # Prepare parameters for system integration
                 additional_params = {
@@ -889,7 +982,7 @@ class ResearchInterface:
                         "prompt": prompt,
                         "negative_prompt": negative_prompt,
                         "parameters": additional_params,
-                        "compliance_mode": compliance_mode,
+                        "compliance_mode": "research_safe",
                         "generation_time": result.generation_time,
                         "device": "cuda",
                         "output_path": str(result.output_path)
@@ -955,7 +1048,7 @@ class ResearchInterface:
             return None, {}, f"Generation failed: {str(e)}"
     
     def _generate_video(self, prompt: str, negative_prompt: str, width: int, height: int, 
-                       frames: int, fps: int, model_name: str, compliance_mode: str) -> Tuple[Optional[str], Dict[str, Any], str]:
+                       frames: int, fps: int, model_name: str) -> Tuple[Optional[str], Dict[str, Any], str]:
         """Generate a video based on the input parameters."""
         try:
             if not prompt.strip():
@@ -986,19 +1079,49 @@ class ResearchInterface:
             # Create generation request
             from src.core.interfaces import GenerationRequest, ComplianceMode as CoreComplianceMode
             
-            # Convert compliance mode string to enum
-            compliance_enum = CoreComplianceMode.FULL_DATASET  # Default
-            if compliance_mode == "open_only":
-                compliance_enum = CoreComplianceMode.OPEN_SOURCE_ONLY
-            elif compliance_mode == "research_safe":
-                compliance_enum = CoreComplianceMode.RESEARCH_SAFE
+            # Use default compliance mode
+            compliance_enum = CoreComplianceMode.RESEARCH_SAFE
+            
+            # Create a minimal style config for video generation
+            from src.core.interfaces import StyleConfig, HardwareConfig, ConversationContext
+            
+            # Create minimal required objects
+            style_config = StyleConfig(
+                generation_params={
+                    "width": width,
+                    "height": height,
+                    "frames": frames,
+                    "fps": fps,
+                    "model_name": model_name
+                }
+            )
+            
+            # Create minimal hardware config
+            hardware_config = HardwareConfig(
+                vram_size=4096,  # 4GB for GTX 1650
+                gpu_model="GTX 1650",
+                cpu_cores=os.cpu_count() or 4,
+                ram_size=8192,  # 8GB RAM
+                cuda_available=torch.cuda.is_available(),
+                optimization_level="balanced"
+            )
+            
+            # Create minimal conversation context
+            context = ConversationContext(
+                conversation_id=f"video_gen_{int(time.time())}",
+                history=[],
+                current_mode=compliance_enum,
+                user_preferences={}
+            )
             
             request = GenerationRequest(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
-                width=width,
-                height=height,
+                output_type=OutputType.VIDEO,
+                style_config=style_config,
                 compliance_mode=compliance_enum,
+                hardware_constraints=hardware_config,
+                context=context,
                 additional_params={
                     "frames": frames,
                     "fps": fps,
@@ -1032,7 +1155,7 @@ class ResearchInterface:
                         "frames": frames,
                         "fps": fps
                     },
-                    "compliance_mode": compliance_mode,
+                    "compliance_mode": "research_safe",
                     "generation_time": generation_time,
                     "output_path": result.output_path,
                     "quality_metrics": result.quality_metrics
@@ -1138,6 +1261,53 @@ class ResearchInterface:
         except Exception as e:
             logger.error(f"Failed to refresh experiment history: {e}")
             return [["Error loading experiments", "", "", "", "", ""]]
+    
+    def _refresh_memory_status(self) -> str:
+        """Refresh and return current memory status."""
+        try:
+            if not torch.cuda.is_available():
+                return "CUDA not available"
+            
+            device_props = torch.cuda.get_device_properties(0)
+            total_memory = device_props.total_memory / (1024**3)
+            allocated = torch.cuda.memory_allocated(0) / (1024**3)
+            reserved = torch.cuda.memory_reserved(0) / (1024**3)
+            free = total_memory - reserved
+            
+            status = f"GPU: {device_props.name}\n"
+            status += f"Total: {total_memory:.1f}GB\n"
+            status += f"Allocated: {allocated:.1f}GB\n"
+            status += f"Reserved: {reserved:.1f}GB\n"
+            status += f"Free: {free:.1f}GB"
+            
+            return status
+            
+        except Exception as e:
+            logger.error(f"Failed to refresh memory status: {e}")
+            return f"Error: {str(e)}"
+    
+    def _initialize_ui(self) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
+        """Initialize UI with current status."""
+        try:
+            # Auto-load first model
+            if self.model_choices and self.image_generator:
+                first_model = self.model_choices[0]
+                logger.info(f"Auto-loading first available model: {first_model}")
+                if self.image_generator.load_model(first_model):
+                    logger.info(f"Auto-loaded model {first_model} successfully")
+                else:
+                    logger.warning(f"Failed to auto-load model {first_model}")
+            
+            # Get initial status
+            memory_status = self._refresh_memory_status()
+            hardware_info = self._refresh_system_status()[0]
+            model_info = self._refresh_system_status()[1]
+            
+            return memory_status, hardware_info, model_info
+            
+        except Exception as e:
+            logger.error(f"Error during UI initialization: {e}")
+            return "Initialization error", {}, {}
     
     def _auto_load_first_model(self):
         """Auto-load the first available model when the interface loads."""
