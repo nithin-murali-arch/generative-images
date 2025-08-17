@@ -699,12 +699,18 @@ class ImageGenerationPipeline(IGenerationPipeline):
             except Exception as e:
                 logger.warning(f"Failed to enable sequential CPU offloading: {e}")
         
-        # Apply XFormers optimization
+        # Apply XFormers optimization (only if available and enabled)
         if optimization_settings.get('xformers', False):
             try:
+                # Check if xformers is actually available
+                import xformers
                 if hasattr(pipeline, 'enable_xformers_memory_efficient_attention'):
                     pipeline.enable_xformers_memory_efficient_attention()
                     logger.debug("Enabled XFormers memory efficient attention")
+                else:
+                    logger.debug("Pipeline doesn't support XFormers")
+            except ImportError:
+                logger.debug("XFormers not available - skipping optimization")
             except Exception as e:
                 logger.warning(f"Failed to enable XFormers: {e}")
         

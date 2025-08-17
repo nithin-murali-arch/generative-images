@@ -342,7 +342,7 @@ class MemoryManager(IMemoryManager):
             settings.update({
                 'low_cpu_mem_usage': True,
                 'use_auth_token': None,
-                'torch_dtype': 'float16',
+                'torch_dtype': 'float32',  # Use float32 to avoid black image corruption
                 'enable_attention_slicing': True,
                 'enable_vae_slicing': True,
                 'enable_vae_tiling': True,
@@ -352,14 +352,14 @@ class MemoryManager(IMemoryManager):
         elif self.strategy == OptimizationStrategy.BALANCED:
             settings.update({
                 'low_cpu_mem_usage': True,
-                'torch_dtype': 'float16',
+                'torch_dtype': 'float32',  # Use float32 to avoid black image corruption
                 'enable_vae_tiling': True,
                 'cpu_offload': False,
                 'sequential_cpu_offload': False
             })
         else:  # MINIMAL
             settings.update({
-                'torch_dtype': 'float16',
+                'torch_dtype': 'float32',  # Use float32 to avoid black image corruption
                 'cpu_offload': False,
                 'sequential_cpu_offload': False
             })
@@ -395,7 +395,7 @@ class MemoryManager(IMemoryManager):
         if self.hardware_config.cuda_available and TORCH_AVAILABLE:
             adjustments.update({
                 'device': 'cuda',
-                'enable_xformers': True
+                'enable_xformers': False  # Disable XFormers to avoid warnings
             })
         else:
             adjustments.update({

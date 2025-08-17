@@ -221,6 +221,10 @@ class ResearchInterface:
                 # System Status Tab
                 with gr.TabItem("System Status"):
                     status_components = self._create_status_tab()
+                
+                # Generated Outputs Tab
+                with gr.TabItem("Generated Outputs"):
+                    outputs_components = self._create_outputs_tab()
             
             # Set up event handlers
             self._setup_event_handlers(
@@ -1079,7 +1083,7 @@ class ResearchInterface:
             
         except Exception as e:
             logger.error(f"Video generation failed: {e}")
-            return None, {}, f"Generation failed: {str(e)}"       return None, {}, f"Compliance validation failed: {validation_message}"
+            return None, {}, f"Generation failed: {str(e)}"
             
             # Check if model is available in current compliance mode
             available_models = self.compliance_controller.get_available_models()
@@ -1114,10 +1118,6 @@ class ResearchInterface:
             }
             
             return video_path, generation_info, "Video generated successfully"
-            
-        except Exception as e:
-            logger.error(f"Video generation failed: {e}")
-            return None, {}, f"Generation failed: {str(e)}"
     
     def _save_experiment(self, research_notes: str) -> str:
         """Save experiment with research notes."""
@@ -1159,20 +1159,6 @@ class ResearchInterface:
             return [["Error loading experiments", "", "", "", "", ""]]
             
             return video_path, generation_info, "Video generated successfully"
-            
-        except Exception as e:
-            logger.error(f"Video generation failed: {e}")
-            return None, {}, f"Generation failed: {str(e)}"
-    
-    def _save_experiment(self, notes: str) -> str:
-        """Save current experiment with notes."""
-        try:
-            logger.info("Saving experiment with notes")
-            # Implementation would save to experiment tracker
-            return "Experiment saved successfully"
-        except Exception as e:
-            logger.error(f"Failed to save experiment: {e}")
-            return f"Save failed: {str(e)}"
     
     def _refresh_experiment_history(self) -> List[List[str]]:
         """Refresh experiment history display."""
@@ -1639,4 +1625,169 @@ _quality_preset_change(self, quality_preset: str) -> Tuple[int, float]:
             
         except Exception as e:
             logger.error(f"Failed to save generation output: {e}")
-            return ""
+            return ""   
+ 
+    def _create_outputs_tab(self) -> Dict[str, Any]:
+        """Create the generated outputs tab components."""
+        components = {}
+        
+        with gr.Row():
+            with gr.Column(scale=2):
+                # Output filters
+                with gr.Row():
+                    components['output_type_filter'] = gr.Dropdown(
+                        choices=["All", "Images", "Videos"],
+                        value="All",
+                        label="Output Type"
+                    )
+                    
+                    components['tag_filter'] = gr.Dropdown(
+                        choices=["All", "landscape", "portrait", "abstract", "nature"],
+                        value="All",
+                        label="Tag Filter",
+                        multiselect=True
+                    )
+                    
+                    components['refresh_outputs_btn'] = gr.Button(
+                        "Refresh",
+                        variant="secondary"
+                    )
+                
+                # Output gallery
+                components['output_gallery'] = gr.Gallery(
+                    label="Generated Outputs",
+                    show_label=True,
+                    elem_id="output_gallery",
+                    columns=4,
+                    rows=3,
+                    height="auto"
+                )
+                
+                # Output list (detailed view)
+                components['output_list'] = gr.Dataframe(
+                    headers=["ID", "Type", "Prompt", "Model", "Time", "Size", "Created"],
+                    label="Output Details",
+                    interactive=False,
+                    wrap=True
+                )
+            
+            with gr.Column(scale=1):
+                # Selected output details
+                components['selected_output_info'] = gr.JSON(
+                    label="Selected Output Info",
+                    visible=True
+                )
+                
+                # Output statistics
+                components['output_stats'] = gr.JSON(
+                    label="Output Statistics",
+                    value={
+                        "total_outputs": 0,
+                        "total_size_mb": 0,
+                        "avg_generation_time": 0
+                    }
+                )
+                
+                # Output actions
+                with gr.Column():
+                    components['download_output_btn'] = gr.Button(
+                        "Download Selected",
+                        variant="secondary"
+                    )
+                    
+                    components['delete_output_btn'] = gr.Button(
+                        "Delete Selected",
+                        variant="secondary"
+                    )
+                    
+                    components['cleanup_old_btn'] = gr.Button(
+                        "Cleanup Old Outputs",
+                        variant="secondary"
+                    )
+        
+        return components
+    
+    def _refresh_outputs_display(self, output_type_filter: str, tag_filter: list) -> Tuple[list, list, Dict[str, Any]]:
+        """Refresh the outputs display with current filters."""
+        try:
+            from src.core.output_manager import get_output_manager
+            
+            output_manager = get_output_manager()
+            
+            # Convert filter to OutputType
+            filter_type = None
+            if output_type_filter == "Images":
+                from src.core.output_manager import OutputType
+                filter_type = OutputType.IMAGE
+            elif output_type_filter == "Videos":
+                from src.core.output_manager import OutputType
+                filter_type = OutputType.VIDEO
+            
+            # Get filtered outputs
+            outputs = output_manager.get_outputs(
+                output_type=filter_type,
+                limit=50,
+                tags=tag_filter if tag_filter and "All" not in tag_filter else None
+            )
+            
+            # Prepare gallery data (thumbnails)
+            gallery_data = []
+            for output in outputs:
+                if output.thumbnail_path and output.thumbnail_path.exists():
+                    gallery_data.append((str(output.thumbnail_path), output.prompt[:50] + "..."))
+                elif output.file_path.exists():
+                    gallery_data.append((str(output.file_path), output.prompt[:50] + "..."))
+            
+            # Prepare list data
+            list_data = []
+            for output in outputs:
+                list_data.append([
+                    output.output_id,
+                    output.output_type.value.title(),
+                    output.prompt[:50] + "..." if len(output.prompt) > 50 else output.prompt,
+                    output.model_used,
+                    f"{output.generation_time:.2f}s",
+                    f"{output.file_size_bytes / (1024*1024):.1f}MB",
+                    output.created_at.strftime("%Y-%m-%d %H:%M")
+                ])
+            
+            # Get statistics
+            stats = output_manager.get_statistics()
+            
+            return gallery_data, list_data, stats
+            
+        except Exception as e:
+            logger.error(f"Failed to refresh outputs display: {e}")
+            return [], [], {"error": str(e)}
+    
+    def _get_output_info(self, selected_output_id: str) -> Dict[str, Any]:
+        """Get detailed information for selected output."""
+        try:
+            from src.core.output_manager import get_output_manager
+            
+            output_manager = get_output_manager()
+            metadata = output_manager.get_output_by_id(selected_output_id)
+            
+            if metadata:
+                return {
+                    "output_id": metadata.output_id,
+                    "type": metadata.output_type.value,
+                    "prompt": metadata.prompt,
+                    "model_used": metadata.model_used,
+                    "generation_time": f"{metadata.generation_time:.2f}s",
+                    "file_path": str(metadata.file_path),
+                    "file_size": f"{metadata.file_size_bytes / (1024*1024):.2f}MB",
+                    "resolution": metadata.resolution,
+                    "duration": f"{metadata.duration_seconds:.2f}s" if metadata.duration_seconds else None,
+                    "parameters": metadata.parameters,
+                    "quality_metrics": metadata.quality_metrics,
+                    "compliance_mode": metadata.compliance_mode,
+                    "created_at": metadata.created_at.isoformat(),
+                    "tags": metadata.tags
+                }
+            else:
+                return {"error": "Output not found"}
+                
+        except Exception as e:
+            logger.error(f"Failed to get output info: {e}")
+            return {"error": str(e)}

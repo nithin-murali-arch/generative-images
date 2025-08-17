@@ -474,11 +474,20 @@ class SystemIntegration:
                 'style_config': asdict(request.style_config) if request.style_config else None
             }
             
-            self.experiment_tracker.save_experiment(
-                experiment_name=f"Generation_{generation_id}",
-                experiment_data=experiment_data,
-                tags=['auto_generated', request.output_type.value]
+            # Create experiment result object
+            experiment_result = ExperimentResult(
+                success=result.success,
+                output_path=result.output_path,
+                generation_time=result.generation_time,
+                model_used=result.model_used,
+                quality_metrics=result.quality_metrics,
+                error_message=result.error_message,
+                compliance_info=result.compliance_info
             )
+            
+            # Save experiment with notes
+            notes = f"Auto-generated experiment for {request.output_type.value} generation. Tags: auto_generated, {request.output_type.value}"
+            self.experiment_tracker.save_experiment(experiment_result, notes)
             
             logger.debug(f"Experiment tracked for generation {generation_id}")
             

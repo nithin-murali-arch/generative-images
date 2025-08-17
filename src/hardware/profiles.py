@@ -121,10 +121,10 @@ class HardwareProfileManager:
             ],
             optimizations={
                 'attention_slicing': True,
-                'cpu_offload': True,
-                'sequential_cpu_offload': True,
+                'cpu_offload': False,
+                'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 1,
                 'max_resolution': 512,
                 'enable_vae_slicing': True,
@@ -157,7 +157,7 @@ class HardwareProfileManager:
                 'cpu_offload': False,
                 'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 1,
                 'max_resolution': 768,
                 'enable_vae_slicing': False,
@@ -191,7 +191,7 @@ class HardwareProfileManager:
                 'cpu_offload': False,
                 'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 2,
                 'max_resolution': 1024,
                 'enable_vae_slicing': False,
@@ -223,7 +223,7 @@ class HardwareProfileManager:
                 'cpu_offload': False,
                 'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 1,
                 'max_resolution': 640,
                 'enable_vae_slicing': True,
@@ -296,7 +296,7 @@ class HardwareProfileManager:
                 'cpu_offload': True,
                 'sequential_cpu_offload': True,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 1,
                 'max_resolution': 512,
                 'enable_vae_slicing': True,
@@ -318,7 +318,7 @@ class HardwareProfileManager:
                 'cpu_offload': False,
                 'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 1,
                 'max_resolution': 640,
                 'enable_vae_slicing': True,
@@ -340,7 +340,7 @@ class HardwareProfileManager:
                 'cpu_offload': False,
                 'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 1,
                 'max_resolution': 768,
                 'enable_vae_slicing': False,
@@ -362,7 +362,7 @@ class HardwareProfileManager:
                 'cpu_offload': False,
                 'sequential_cpu_offload': False,
                 'mixed_precision': True,
-                'xformers': True,
+                'xformers': False,  # Disable XFormers to avoid warnings
                 'batch_size': 2,
                 'max_resolution': 1024,
                 'enable_vae_slicing': False,

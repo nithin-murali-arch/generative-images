@@ -6,18 +6,14 @@ Multimodal LLM Experiment System, including generation controls, compliance
 management, and experiment tracking.
 """
 
-from .research_interface import (
+from .research_interface_simple import (
     ResearchInterface,
     UIState,
-    InterfaceTheme,
-    create_research_interface,
-    launch_research_interface
+    ComplianceMode
 )
 
 __all__ = [
     'ResearchInterface',
     'UIState', 
-    'InterfaceTheme',
-    'create_research_interface',
-    'launch_research_interface'
+    'ComplianceMode'
 ]

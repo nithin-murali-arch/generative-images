@@ -1,0 +1,74 @@
+{
+  "image_20250817_180516_2315": {
+    "output_id": "image_20250817_180516_2315",
+    "output_type": "image",
+    "file_path": "outputs\\images\\2025\\08\\17\\image_20250817_180516_2315.png",
+    "thumbnail_path": "outputs\\thumbnails\\image_20250817_180516_2315_thumb.jpg",
+    "prompt": "a beautiful red rose in a garden",
+    "model_used": "stable-diffusion-v1-5",
+    "generation_time": 114.09322190284729,
+    "parameters": {
+      "width": 512,
+      "height": 512,
+      "num_inference_steps": 15,
+      "guidance_scale": 7.5,
+      "force_gpu_usage": true,
+      "precision": "float16",
+      "memory_optimization": "Attention Slicing"
+    },
+    "quality_metrics": {
+      "resolution": 262144,
+      "aspect_ratio": 1.0,
+      "inference_steps": 20,
+      "actual_width": 512,
+      "actual_height": 512
+    },
+    "compliance_mode": "research_safe",
+    "created_at": "2025-08-17T18:05:16.694847",
+    "file_size_bytes": 843,
+    "resolution": [
+      512,
+      512
+    ],
+    "duration_seconds": null,
+    "tags": [
+      "nature"
+    ]
+  },
+  "image_20250817_180708_6419": {
+    "output_id": "image_20250817_180708_6419",
+    "output_type": "image",
+    "file_path": "outputs\\images\\2025\\08\\17\\image_20250817_180708_6419.png",
+    "thumbnail_path": "outputs\\thumbnails\\image_20250817_180708_6419_thumb.jpg",
+    "prompt": "a majestic mountain landscape with snow-capped peaks and a crystal clear lake",
+    "model_used": "stable-diffusion-v1-5",
+    "generation_time": 109.39015889167786,
+    "parameters": {
+      "width": 768,
+      "height": 768,
+      "num_inference_steps": 25,
+      "guidance_scale": 9.0,
+      "force_gpu_usage": true,
+      "precision": "float16",
+      "memory_optimization": "Attention Slicing"
+    },
+    "quality_metrics": {
+      "resolution": 262144,
+      "aspect_ratio": 1.0,
+      "inference_steps": 20,
+      "actual_width": 512,
+      "actual_height": 512
+    },
+    "compliance_mode": "research_safe",
+    "created_at": "2025-08-17T18:07:08.345082",
+    "file_size_bytes": 843,
+    "resolution": [
+      512,
+      512
+    ],
+    "duration_seconds": null,
+    "tags": [
+      "landscape"
+    ]
+  }
+}
