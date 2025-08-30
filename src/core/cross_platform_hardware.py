@@ -37,6 +37,7 @@ class CrossPlatformHardwareConfig:
     gpu_model: str
     vram_size: int  # MB
     cuda_available: bool
+    is_dedicated_gpu: bool
     
     # Derived properties
     optimization_level: str
@@ -105,6 +106,7 @@ class CrossPlatformHardwareDetector:
                 gpu_model=gpu_info['model'],
                 vram_size=gpu_info['vram_mb'],
                 cuda_available=gpu_info['cuda_available'],
+                is_dedicated_gpu=gpu_info.get('is_dedicated', False),
                 optimization_level=self._determine_optimization_level(gpu_info['vram_mb']),
                 hardware_tier=self._determine_hardware_tier(gpu_info['vram_mb'])
             )
@@ -285,7 +287,8 @@ class CrossPlatformHardwareDetector:
         gpu_info = {
             'model': 'Unknown GPU',
             'vram_mb': 0,
-            'cuda_available': False
+            'cuda_available': False,
+            'is_dedicated': False
         }
         
         # Try PyTorch detection first (if available)
@@ -296,6 +299,8 @@ class CrossPlatformHardwareDetector:
                 props = torch.cuda.get_device_properties(0)
                 gpu_info['model'] = props.name
                 gpu_info['vram_mb'] = props.total_memory // (1024 * 1024)
+                # CUDA GPUs are typically dedicated
+                gpu_info['is_dedicated'] = True
                 return gpu_info
         except ImportError:
             pass
@@ -328,17 +333,24 @@ class CrossPlatformHardwareDetector:
                             try:
                                 vram_bytes = int(parts[0]) if parts[0].isdigit() else 0
                                 name = ' '.join(parts[1:])
+                                is_dedicated = "NVIDIA" in name.upper() or "AMD" in name.upper() or "Radeon RX" in name.upper()
+                                # Check for integrated GPU keywords
+                                integrated_keywords = ["Intel", "UHD", "Iris", "Vega", "APU", "Integrated"]
+                                if any(keyword in name for keyword in integrated_keywords):
+                                    is_dedicated = False
+                                
                                 return {
                                     'model': name,
                                     'vram_mb': vram_bytes // (1024 * 1024) if vram_bytes > 0 else 4000,
-                                    'cuda_available': "NVIDIA" in name.upper()
+                                    'cuda_available': "NVIDIA" in name.upper(),
+                                    'is_dedicated': is_dedicated
                                 }
                             except:
                                 continue
         except Exception:
             pass
         
-        return {'model': 'Windows GPU', 'vram_mb': 4000, 'cuda_available': False}
+        return {'model': 'Windows GPU', 'vram_mb': 4000, 'cuda_available': False, 'is_dedicated': False}
     
     def _get_linux_gpu(self) -> Dict[str, Any]:
         """Get GPU info on Linux."""
@@ -362,7 +374,8 @@ class CrossPlatformHardwareDetector:
                         return {
                             'model': name,
                             'vram_mb': vram_mb,
-                            'cuda_available': True
+                            'cuda_available': True,
+                            'is_dedicated': True  # NVIDIA GPUs are dedicated
                         }
         except Exception:
             pass
@@ -379,12 +392,13 @@ class CrossPlatformHardwareDetector:
                         return {
                             'model': gpu_name,
                             'vram_mb': 4000,  # Can't detect VRAM from lspci
-                            'cuda_available': True
+                            'cuda_available': True,
+                            'is_dedicated': True  # NVIDIA GPUs are dedicated
                         }
         except Exception:
             pass
         
-        return {'model': 'Linux GPU', 'vram_mb': 4000, 'cuda_available': False}
+        return {'model': 'Linux GPU', 'vram_mb': 4000, 'cuda_available': False, 'is_dedicated': False}
     
     def _get_macos_gpu(self) -> Dict[str, Any]:
         """Get GPU info on macOS."""
@@ -415,15 +429,19 @@ class CrossPlatformHardwareDetector:
                         except:
                             pass
                     
+                    # Apple Silicon M1/M2/M3 are integrated but powerful
+                    is_dedicated = "M1" in name or "M2" in name or "M3" in name
+                    
                     return {
                         'model': name,
                         'vram_mb': vram_mb or 4000,  # Default if can't detect
-                        'cuda_available': False  # macOS doesn't support CUDA
+                        'cuda_available': False,  # macOS doesn't support CUDA
+                        'is_dedicated': is_dedicated
                     }
         except Exception:
             pass
         
-        return {'model': 'macOS GPU', 'vram_mb': 4000, 'cuda_available': False}
+        return {'model': 'macOS GPU', 'vram_mb': 4000, 'cuda_available': False, 'is_dedicated': False}
     
     def _determine_optimization_level(self, vram_mb: int) -> str:
         """Determine optimization level based on VRAM."""
@@ -461,6 +479,7 @@ class CrossPlatformHardwareDetector:
             gpu_model="Unknown GPU",
             vram_size=4000,  # Conservative default
             cuda_available=False,
+            is_dedicated_gpu=False,
             optimization_level="balanced",
             hardware_tier="budget"
         )

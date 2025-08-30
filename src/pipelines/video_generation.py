@@ -18,8 +18,7 @@ from ..core.interfaces import (
     IGenerationPipeline, GenerationRequest, GenerationResult, 
     HardwareConfig, StyleConfig, ComplianceMode
 )
-from ..hardware.memory_manager import MemoryManager
-from ..hardware.profiles import HardwareProfileManager
+from ..core.resource_manager import get_resource_manager
 from .frame_processor import FrameProcessor
 from .temporal_consistency import TemporalConsistencyEngine
 

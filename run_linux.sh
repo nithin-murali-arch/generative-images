@@ -56,6 +56,29 @@ else
 fi
 echo ""
 
+# Check for uv package manager
+if ! command -v uv &> /dev/null; then
+    print_info "Installing uv package manager..."
+    if command -v curl &> /dev/null; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.cargo/bin:$PATH"
+    else
+        print_info "Installing curl first..."
+        if command -v apt &> /dev/null; then
+            sudo apt update && sudo apt install -y curl
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y curl
+        elif command -v pacman &> /dev/null; then
+            sudo pacman -S curl
+        fi
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+fi
+
+print_status "uv package manager ready"
+echo ""
+
 # Check system specs
 echo "🖥️ Checking system specifications..."
 python3 system_specs.py
@@ -101,26 +124,31 @@ if [ $? -ne 0 ]; then
     read -p "📥 Would you like to install missing dependencies? [y/N]: " install_deps
     if [[ $install_deps =~ ^[Yy]$ ]]; then
         echo ""
-        print_info "Installing dependencies..."
+        print_info "Installing dependencies with uv..."
         
-        # Check if pip3 is available
-        if ! command -v pip3 &> /dev/null; then
-            print_error "pip3 not found! Install with:"
-            echo "  Ubuntu/Debian: sudo apt install python3-pip"
-            exit 1
-        fi
-        
-        # Install PyTorch with CUDA support (if available)
-        if command -v nvidia-smi &> /dev/null; then
-            print_info "NVIDIA GPU detected, installing PyTorch with CUDA support..."
-            pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+        if [ -f "pyproject.toml" ]; then
+            # Check for GPU before syncing
+            if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+                print_info "NVIDIA GPU detected, installing PyTorch with CUDA support..."
+                uv add torch torchvision torchaudio --index pytorch-cu121
+            else
+                print_warning "No NVIDIA GPU detected, installing CPU-only PyTorch..."
+                uv add torch torchvision torchaudio --index pytorch-cpu
+            fi
+            uv sync
         else
-            print_warning "No NVIDIA GPU detected, installing CPU-only PyTorch..."
-            pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+            # Install PyTorch with automatic GPU detection
+            if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+                print_info "NVIDIA GPU detected, installing PyTorch with CUDA support..."
+                uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+            else
+                print_warning "No NVIDIA GPU detected, installing CPU-only PyTorch..."
+                uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+            fi
+            
+            # Install other requirements
+            uv pip install diffusers transformers accelerate gradio psutil
         fi
-        
-        # Install other requirements
-        pip3 install -r requirements.txt
         
         if [ $? -eq 0 ]; then
             print_status "Dependencies installed successfully!"

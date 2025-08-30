@@ -1,212 +1,208 @@
 # 🎨 AI Content Generator
 
-A modern, user-friendly interface for generating images and videos using the latest AI models. Features automatic hardware optimization and both easy and advanced modes for users of all skill levels.
+A cross-platform AI content generator with automatic hardware optimization, thermal safety, and support for the latest image and video generation models.
 
-## ✨ Features
+## ✨ Key Features
 
-- **🖼️ Image Generation**: Create stunning images from text prompts using the latest models
-- **🎬 Video Generation**: Generate videos from text or images with state-of-the-art models  
-- **🔄 Easy/Advanced Modes**: Simple interface for beginners, full control for power users
-- **⚡ Hardware Optimization**: Automatic optimization for 2GB to 24GB+ VRAM
-- **🤖 Latest Models**: Updated model registry with FLUX.1, SDXL, Stable Video Diffusion
-- **🎯 Smart Fallbacks**: Automatic model selection based on your hardware
-
-## 🖥️ Supported Hardware
-
-### Minimum Requirements
-- **GPU**: GTX 1050 (2GB VRAM) or equivalent
-- **RAM**: 8GB system RAM  
-- **Storage**: 20GB free space for models
-- **OS**: Windows 10/11, macOS, or Linux with CUDA support
-
-### Recommended Configurations
-- **Budget**: GTX 1650 (4GB) → Stable Diffusion 1.5, fast image generation
-- **Mid-Range**: RTX 3070 (8GB) → SDXL, high-quality images
-- **High-End**: RTX 4090 (24GB) → FLUX.1, video generation, best quality
+- **🖼️ Image Generation**: Latest models (FLUX.1, SDXL, Stable Diffusion)
+- **🎬 Video Generation**: Text-to-video and image-to-video support
+- **🌡️ Thermal Safety**: Real-time temperature monitoring with automatic cooling
+- **🖥️ Hardware Optimization**: Automatic detection and optimization for 2GB-24GB+ VRAM
+- **🌍 Cross-Platform**: Windows, Linux, and macOS support
+- **⚡ Smart Model Selection**: Only shows compatible models for your hardware
 
 ## 🚀 Quick Start
 
-### 🌍 **Cross-Platform Support**
-Works on **Windows**, **Linux**, and **macOS** with automatic hardware detection!
+### One-Click Launch (Recommended)
 
-### 1. **Platform-Specific Quick Launch**
-
-#### 🪟 **Windows** (One-Click)
+#### Windows
 ```cmd
-# Double-click or run in Command Prompt
 run_windows.bat
 ```
 
-#### 🐧 **Linux/Ubuntu** (One-Click)
+#### Linux/macOS
 ```bash
-# Make executable and run
-chmod +x run_linux.sh
-./run_linux.sh
+chmod +x run_linux.sh && ./run_linux.sh
+# or for macOS specifically:
+chmod +x run_macos.sh && ./run_macos.sh
 ```
 
-#### 🍎 **macOS** (One-Click)
+#### Universal (Any Platform)
 ```bash
-# Use the Linux script (works on macOS)
-chmod +x run_linux.sh
-./run_linux.sh
-```
-
-#### 🌐 **Universal Launcher** (Any Platform)
-```bash
-# Cross-platform launcher with auto-detection
 python3 launch.py
-
-# Check system specs first
-python3 system_specs.py
-
-# Check dependencies only
-python3 launch.py --check
 ```
 
-### 2. **Manual Installation** (If Needed)
+### Manual Installation
 
-#### Using UV (Recommended - Faster)
+#### Using UV (Fast Package Manager)
 ```bash
 # Install UV
 curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/Mac
-# or
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+# or: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
 # Setup project
 uv sync
-uv add torch torchvision --index pytorch-cu121
+python3 app.py
 ```
 
 #### Using pip (Traditional)
 ```bash
-# Windows
-python -m venv ai_generator
-ai_generator\Scripts\activate
+# Create virtual environment
+python3 -m venv ai_generator
+source ai_generator/bin/activate  # Linux/Mac
+# or: ai_generator\\Scripts\\activate  # Windows
+
+# Install dependencies
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 
-# Linux/macOS
-python3 -m venv ai_generator
-source ai_generator/bin/activate
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip3 install -r requirements.txt
+# Launch
+python3 app.py
 ```
 
-### 3. **Launch & Generate**
-1. **Hardware Detection**: System automatically detects your GPU and VRAM
-2. **Model Recommendations**: Shows only compatible models for your hardware
-3. **Auto-Download**: Recommended models download automatically
-4. **Start Creating**: Use Easy mode for quick results!
+## 🖥️ Hardware Support
 
-### 📖 **Detailed Setup Guides**
-- 🌍 **[Cross-Platform Setup](CROSS_PLATFORM_SETUP.md)** - Comprehensive platform-specific instructions
-- 🚀 **[UV Setup Guide](UV_SETUP.md)** - Fast package management with UV
-- 🖥️ **[Hardware Features](HARDWARE_AWARE_FEATURES.md)** - Hardware detection and optimization
+### Automatic Hardware Detection
+The system automatically detects your GPU and recommends optimal models:
 
-## Project Structure
+| Hardware Tier | VRAM | Example GPUs | Recommended Models | Performance |
+|---------------|------|--------------|-------------------|-------------|
+| **Lightweight** | 2-4GB | GTX 1650, RTX 3050 | SD 1.5, Tiny SD | 2-5s per image |
+| **Mid-Tier** | 6-12GB | RTX 3070, RTX 4060 Ti | SDXL, SDXL Turbo | 3-8s per image |
+| **High-End** | 16-24GB | RTX 4080, RTX 4090 | FLUX.1 Schnell | 2-6s per image |
+| **Ultra** | 24GB+ | RTX 6000, A100 | FLUX.1 Dev | 1-4s per image |
+
+### Thermal Safety
+- **Real-time monitoring** of CPU and GPU temperatures
+- **Automatic pause** at 70°C, resume at 45°C
+- **Emergency shutdown** at 90°C to prevent hardware damage
+- **Cross-platform** temperature sensor detection
+
+## 🎯 Smart Features
+
+### Hardware-Aware Model Selection
+- Only shows models compatible with your VRAM
+- Automatic model downloads for your hardware tier
+- Performance estimates based on your GPU
+- Dedicated vs integrated GPU detection
+
+### Thermal Protection
+- Continuous temperature monitoring during generation
+- Automatic workload pausing when temperatures exceed safe limits
+- No mocking or fallbacks - real sensor readings only
+- Platform-specific thermal sensor integration
+
+### Cross-Platform Optimization
+- **Windows**: WMI hardware detection, CUDA optimization
+- **Linux**: lm-sensors integration, package manager detection
+- **macOS**: Apple Silicon MPS support, system_profiler integration
+
+## 📁 Project Structure
 
 ```
-academic-multimodal-llm-system/
+ai-content-generator/
 ├── src/
-│   ├── core/                 # Core interfaces and configuration
-│   ├── pipelines/           # Image and video generation pipelines
-│   ├── data/                # Copyright-aware data management
-│   ├── hardware/            # Hardware detection and optimization
-│   ├── ui/                  # Gradio research interface
-│   └── api/                 # REST API endpoints
-├── tests/                   # Unit and integration tests
-├── config/                  # Configuration files
-├── data/                    # Training datasets (organized by license)
-├── models/                  # Downloaded and fine-tuned models
-├── experiments/             # Experiment results and logs
-└── cache/                   # Temporary files and model cache
+│   ├── core/                 # Core system components
+│   │   ├── model_registry.py      # Latest model definitions
+│   │   ├── thermal_monitor.py     # Real-time thermal safety
+│   │   ├── cross_platform_hardware.py  # Hardware detection
+│   │   └── model_downloader.py    # Intelligent model downloads
+│   ├── pipelines/           # Generation pipelines
+│   └── ui/                  # Modern Gradio interface
+├── .kiro/steering/          # Safety policies and guidelines
+├── run_windows.bat          # Windows one-click launcher
+├── run_linux.sh            # Linux one-click launcher
+├── run_macos.sh            # macOS one-click launcher
+├── launch.py               # Universal cross-platform launcher
+├── app.py                  # Main application entry point
+└── pyproject.toml          # Modern Python project configuration
 ```
 
-## Copyright Compliance Modes
+## 🛡️ Safety & Compliance
 
-### Open Source Only
-- **Content**: Public Domain + Creative Commons
-- **Sources**: Wikimedia Commons, Unsplash, Pexels, Archive.org
-- **Use Case**: Commercial-safe research and development
+### No-Mocking Policy
+- **Real hardware detection only** - no fallbacks or estimates
+- **Actual thermal readings** - no simulated temperatures
+- **Fail-fast behavior** - stops if hardware detection fails
+- **Comprehensive logging** - full audit trail of operations
 
-### Research Safe (Default)
-- **Content**: Open Source + Fair Use Research
-- **Sources**: Above + Flickr, DeviantArt, YouTube (research exemption)
-- **Use Case**: Academic research with fair use justification
+### Thermal Safety Protocol
+```python
+# Automatic safety checks before AI workloads
+from src.core.thermal_monitor import ensure_thermal_safety
 
-### Full Dataset
-- **Content**: All content including copyrighted material
-- **Sources**: All sources including commercial stock photos
-- **Use Case**: Research comparison studies only (clearly labeled)
+if not ensure_thermal_safety():
+    # System automatically waits for cooling or shuts down
+    raise RuntimeError("System too hot - operations paused")
+```
 
-## Hardware Optimization
+## 🔧 Advanced Usage
 
-The system automatically detects your hardware and applies appropriate optimizations:
+### System Information
+```bash
+# Check hardware specifications
+python3 system_specs.py
 
-### GTX 1650 (4GB VRAM)
-- Aggressive memory optimization
-- CPU offloading for LLM tasks
-- SD 1.5 with attention slicing
-- 512x512 resolution, 30-60s generation time
+# Test thermal safety system
+python3 test_thermal_safety.py
 
-### RTX 3070 (8GB VRAM)
-- Balanced optimization
-- SDXL-Turbo support
-- 768x768 resolution, 10-20s generation time
+# Check dependencies
+python3 launch.py --check
+```
 
-### RTX 4090 (24GB VRAM)
-- Minimal optimization needed
-- FLUX.1-schnell support
-- 1024x1024 resolution, 5-10s generation time
-- Concurrent model loading
+### Model Management
+- Models auto-download based on hardware compatibility
+- Shared model cache across projects (`~/.cache/huggingface/`)
+- Background downloads don't block interface
+- One-click model switching in UI
 
-## Research Ethics
+### Performance Optimization
+- Automatic VRAM optimization based on detected hardware
+- CPU offloading for memory-constrained systems
+- Attention slicing and gradient checkpointing
+- Platform-specific acceleration (CUDA, MPS, CPU)
 
-This system is designed with academic research ethics in mind:
+## 🌡️ Thermal Monitoring
 
-- **Transparent Licensing**: All content is classified and attributed
-- **Fair Use Compliance**: Research exemptions are clearly documented
-- **Attribution Tracking**: Source attribution is maintained throughout
-- **Selective Training**: Choose which license types to include in training
-- **Audit Trail**: Complete provenance tracking for academic integrity
+The system includes comprehensive thermal protection:
 
-## Development Phases
+- **Real-time monitoring** of all CPU and GPU sensors
+- **Automatic operation pause** when temperatures reach 70°C
+- **Resume operations** when temperatures drop below 45°C
+- **Emergency shutdown** at 90°C to prevent hardware damage
+- **Cross-platform sensor support** (Linux lm-sensors, Windows WMI, macOS system calls)
 
-The system supports incremental development:
+## 🎉 Getting Started
 
-1. **Phase 1**: Basic image generation setup
-2. **Phase 2**: Video generation integration
-3. **Phase 3**: Ethical data collection
-4. **Phase 4**: Fine-tuning experiments
-5. **Phase 5**: LLM integration and workflows
-6. **Phase 6**: Analysis and documentation
+1. **Run launcher**: Use platform-specific script or `python3 launch.py`
+2. **Hardware detection**: System automatically detects GPU and VRAM
+3. **Model recommendations**: See only compatible models for your hardware
+4. **Auto-download**: Recommended models download automatically
+5. **Start generating**: Use the web interface at http://localhost:7860
 
-## Contributing
+## 📞 Support
 
-This is an academic research project. Contributions should focus on:
+If you encounter issues:
 
-- Ethical AI practices and copyright compliance
-- Hardware optimization for consumer GPUs
-- Research methodology and experiment tracking
-- Academic integrity and transparency
+1. **Check system specs**: `python3 system_specs.py`
+2. **Verify thermal safety**: `python3 test_thermal_safety.py`
+3. **Test dependencies**: `python3 launch.py --check`
+4. **Check logs**: Look for error messages in console output
+5. **Update drivers**: Ensure GPU drivers are current
 
-## License
+## 🏗️ Development
+
+The system is built with:
+- **Modern Python** (3.8+) with type hints
+- **Cross-platform compatibility** (Windows/Linux/macOS)
+- **Real hardware detection** (no mocking or simulation)
+- **Thermal safety enforcement** (mandatory temperature monitoring)
+- **Modular architecture** (easy to extend and maintain)
+
+## 📄 License
 
 MIT License - See LICENSE file for details.
 
-## Citation
+---
 
-If you use this system in your research, please cite:
-
-```bibtex
-@software{academic_multimodal_llm_2024,
-  title={Academic Multimodal LLM Experiment System},
-  author={Academic Research Team},
-  year={2024},
-  url={https://github.com/example/academic-multimodal-llm-system}
-}
-```
-
-## Disclaimer
-
-This system is designed for academic research purposes. Users are responsible for ensuring compliance with copyright laws and institutional ethics guidelines in their jurisdiction.
+**Ready to create amazing AI content safely and efficiently across any platform!** 🚀

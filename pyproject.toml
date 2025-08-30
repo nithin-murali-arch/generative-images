@@ -1,7 +1,7 @@
 [project]
 name = "ai-content-generator"
 version = "1.0.0"
-description = "Modern AI Content Generator with Easy/Advanced modes for images and videos"
+description = "Cross-platform AI content generator with thermal safety and hardware optimization"
 authors = [
     {name = "AI Content Generator Team"}
 ]
@@ -28,13 +28,13 @@ dependencies = [
     
     # Scientific computing
     "numpy>=1.24.0",
-    "scipy>=1.11.0",
     
     # Model management
     "huggingface-hub>=0.19.0",
     "safetensors>=0.4.0",
     
-    # Utilities
+    # System utilities
+    "psutil>=5.9.0",
     "tqdm>=4.66.0",
     "requests>=2.31.0",
 ]
@@ -59,26 +59,9 @@ dev = [
     "flake8>=6.0.0",
 ]
 
-# Experiment tracking (optional)
-tracking = [
-    "wandb>=0.16.0",
-]
-
-# Mid-tier models (6-12GB VRAM) - Auto-downloaded for compatible hardware
-mid-tier = [
-    # These are model identifiers that will be auto-downloaded
-    # Actual models are downloaded via Hugging Face Hub
-]
-
-# High-end models (16GB+ VRAM) - Downloaded on-demand for high-end hardware  
-high-end = [
-    # These are model identifiers that will be auto-downloaded
-    # Actual models are downloaded via Hugging Face Hub
-]
-
 # All optional dependencies
 all = [
-    "ai-content-generator[optimization,api,dev,tracking]"
+    "ai-content-generator[optimization,api,dev]"
 ]
 
 [project.scripts]
@@ -87,7 +70,6 @@ ai-generator = "app:main"
 [project.urls]
 Homepage = "https://github.com/your-username/ai-content-generator"
 Repository = "https://github.com/your-username/ai-content-generator"
-Issues = "https://github.com/your-username/ai-content-generator/issues"
 
 [build-system]
 requires = ["hatchling"]
@@ -108,11 +90,6 @@ url = "https://download.pytorch.org/whl/cu121"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-cu118" 
-url = "https://download.pytorch.org/whl/cu118"
-explicit = true
-
-[[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
@@ -124,5 +101,3 @@ target-version = ['py38']
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]

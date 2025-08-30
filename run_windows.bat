@@ -31,6 +31,17 @@ echo 🖥️  Checking system specifications...
 python system_specs.py
 echo.
 
+REM Check for uv package manager
+where uv >nul 2>&1
+if %errorlevel% neq 0 (
+    echo 📦 Installing uv package manager...
+    powershell -Command "irm https://astral.sh/uv/install.ps1 | iex"
+    set PATH=%USERPROFILE%\.cargo\bin;%PATH%
+)
+
+echo ✅ uv package manager ready
+echo.
+
 REM Check if required packages are installed
 echo 📦 Checking dependencies...
 python -c "
@@ -71,8 +82,30 @@ if errorlevel 1 (
     set /p install_deps=
     if /i "%install_deps%"=="Y" (
         echo.
-        echo 📦 Installing dependencies...
-        pip install -r requirements.txt
+        echo 📦 Installing dependencies with uv...
+        if exist "pyproject.toml" (
+            REM Check for NVIDIA GPU
+            nvidia-smi >nul 2>&1
+            if %errorlevel% equ 0 (
+                echo ✅ NVIDIA GPU detected, installing PyTorch with CUDA support...
+                uv add torch torchvision torchaudio --index pytorch-cu121
+            ) else (
+                echo ⚠️  No NVIDIA GPU detected, installing CPU-only PyTorch...
+                uv add torch torchvision torchaudio --index pytorch-cpu
+            )
+            uv sync
+        ) else (
+            REM Check for NVIDIA GPU
+            nvidia-smi >nul 2>&1
+            if %errorlevel% equ 0 (
+                echo ✅ NVIDIA GPU detected, installing PyTorch with CUDA support...
+                uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+            ) else (
+                echo ⚠️  No NVIDIA GPU detected, installing CPU-only PyTorch...
+                uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+            )
+            uv pip install diffusers transformers accelerate gradio psutil
+        )
         if errorlevel 1 (
             echo ❌ Installation failed!
             pause

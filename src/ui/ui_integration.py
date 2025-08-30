@@ -7,6 +7,7 @@ underlying generation pipelines and system controllers.
 
 import logging
 import asyncio
+import platform
 from typing import Dict, Any, Optional, Tuple, Union, List
 from pathlib import Path
 import time
@@ -22,38 +23,16 @@ try:
     from ..core.model_registry import get_model_registry, ModelType
     from ..pipelines.image_generation import ImageGenerationPipeline
     from ..pipelines.video_generation import VideoGenerationPipeline
-    from ..hardware.detector import HardwareDetector
+    # Hardware detection is now in cross_platform_hardware
     SYSTEM_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"System components not available: {e}")
     SYSTEM_AVAILABLE = False
     
-    # Mock classes for development
-    class GenerationRequest:
-        def __init__(self, **kwargs):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-    
-    class GenerationResult:
-        def __init__(self, **kwargs):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
-    
-    class HardwareConfig:
-        def __init__(self):
-            self.gpu_model = 'Unknown GPU'
-            self.vram_size = 8000  # Default 8GB
-            self.cpu_cores = 4
-            self.ram_size = 16000  # Default 16GB
-            self.cuda_available = False
-            self.optimization_level = 'balanced'
-    
-    class HardwareDetector:
-        def detect_hardware(self):
-            return HardwareConfig()
-    
-    OutputType = type('OutputType', (), {'IMAGE': 'image', 'VIDEO': 'video'})
-    ComplianceMode = type('ComplianceMode', (), {'RESEARCH_SAFE': 'research_safe'})
+    # CRITICAL: NO MOCKS ALLOWED - System must fail if components unavailable
+    logger.error("CRITICAL: Core system components not available")
+    logger.error("Cannot proceed without real hardware detection and thermal monitoring")
+    raise RuntimeError("System components unavailable - cannot operate safely without real hardware detection")
 
 
 class SystemIntegration:
@@ -77,57 +56,77 @@ class SystemIntegration:
         logger.info("SystemIntegration created")
     
     def initialize(self) -> bool:
-        """Initialize the system integration."""
+        """Initialize the system integration with mandatory safety checks."""
         try:
-            logger.info("Initializing system integration...")
+            logger.info("Initializing system integration with safety checks...")
             
             if not SYSTEM_AVAILABLE:
-                logger.warning("System components not available - running in mock mode")
-                self.is_initialized = True
-                return True
+                logger.error("CRITICAL: System components not available")
+                raise RuntimeError("Cannot operate without core system components")
+            
+            # MANDATORY: Initialize thermal monitoring FIRST
+            from ..core.thermal_monitor import get_thermal_monitor, ensure_thermal_safety
+            
+            logger.info("Starting thermal monitoring...")
+            if not ensure_thermal_safety():
+                raise RuntimeError("System too hot - cannot proceed safely")
+            
+            # MANDATORY: Real hardware detection with validation
+            from ..core.cross_platform_hardware import detect_cross_platform_hardware
+            
+            logger.info("Detecting hardware configuration...")
+            cross_platform_config = detect_cross_platform_hardware()
+            
+            # CRITICAL: Validate hardware detection results
+            if cross_platform_config.vram_size <= 0:
+                raise RuntimeError(f"Invalid VRAM detection: {cross_platform_config.vram_size}MB")
+            
+            if cross_platform_config.gpu_model == "Unknown GPU":
+                raise RuntimeError("GPU model detection failed - cannot proceed safely")
+            
+            if cross_platform_config.ram_total_mb <= 0:
+                raise RuntimeError(f"Invalid RAM detection: {cross_platform_config.ram_total_mb}MB")
+            
+            # Convert to expected format (NO defaults, only real values)
+            self.hardware_config = type('HardwareConfig', (), {
+                'gpu_model': cross_platform_config.gpu_model,
+                'vram_size': cross_platform_config.vram_size,
+                'cpu_cores': cross_platform_config.cpu_cores,
+                'ram_size': cross_platform_config.ram_total_mb,
+                'cuda_available': cross_platform_config.cuda_available,
+                'optimization_level': cross_platform_config.optimization_level
+            })()
+            
+            logger.info(f"Hardware validated: {self.hardware_config.gpu_model} with {self.hardware_config.vram_size}MB VRAM")
             
             # Initialize model registry
             self.model_registry = get_model_registry()
             
-            # Detect hardware using cross-platform detector
-            try:
-                from ..core.cross_platform_hardware import detect_cross_platform_hardware
-                cross_platform_config = detect_cross_platform_hardware()
-                
-                # Convert to expected format
-                self.hardware_config = type('HardwareConfig', (), {
-                    'gpu_model': cross_platform_config.gpu_model,
-                    'vram_size': cross_platform_config.vram_size,
-                    'cpu_cores': cross_platform_config.cpu_cores,
-                    'ram_size': cross_platform_config.ram_total_mb,
-                    'cuda_available': cross_platform_config.cuda_available,
-                    'optimization_level': cross_platform_config.optimization_level
-                })()
-                
-                logger.info(f"Detected hardware: {self.hardware_config.gpu_model} with {self.hardware_config.vram_size}MB VRAM")
-                
-            except Exception as e:
-                logger.warning(f"Cross-platform hardware detection failed: {e}")
-                # Fallback to mock detector
-                hardware_detector = HardwareDetector()
-                self.hardware_config = hardware_detector.detect_hardware()
+            # Initialize pipelines with thermal monitoring
+            logger.info("Initializing generation pipelines...")
             
-            # Initialize pipelines
             self.image_pipeline = ImageGenerationPipeline()
             if not self.image_pipeline.initialize(self.hardware_config):
-                logger.warning("Image pipeline initialization failed")
+                raise RuntimeError("Image pipeline initialization failed")
             
             self.video_pipeline = VideoGenerationPipeline()
             if not self.video_pipeline.initialize(self.hardware_config):
-                logger.warning("Video pipeline initialization failed")
+                raise RuntimeError("Video pipeline initialization failed")
+            
+            # Final thermal check before marking as initialized
+            thermal_monitor = get_thermal_monitor()
+            if not thermal_monitor.is_safe_for_ai_workload():
+                raise RuntimeError("System thermal state unsafe after initialization")
             
             self.is_initialized = True
-            logger.info("System integration initialized successfully")
+            logger.info("System integration initialized successfully with thermal safety")
             return True
             
         except Exception as e:
-            logger.error(f"System integration initialization failed: {e}")
-            return False
+            logger.error(f"CRITICAL: System integration initialization failed: {e}")
+            logger.error(f"System: {platform.system()}")
+            logger.error(f"Architecture: {platform.machine()}")
+            raise RuntimeError(f"System initialization failed: {e}")
     
     def get_available_models(self, model_type: str = "image") -> Dict[str, Dict[str, Any]]:
         """Get available models for the specified type with detailed info."""
@@ -253,7 +252,7 @@ class SystemIntegration:
     
     def generate_image(self, prompt: str, **kwargs) -> Tuple[Optional[Any], Dict[str, Any], str]:
         """
-        Generate an image from a text prompt.
+        Generate an image from a text prompt with thermal safety checks.
         
         Args:
             prompt: Text description of the image
@@ -266,6 +265,15 @@ class SystemIntegration:
             if not prompt.strip():
                 return None, {}, "❌ Please enter a prompt"
             
+            # MANDATORY: Thermal safety check before generation
+            from ..core.thermal_monitor import get_thermal_monitor
+            
+            thermal_monitor = get_thermal_monitor()
+            if not thermal_monitor.is_safe_for_ai_workload():
+                logger.warning("System too hot for AI generation - waiting for cooling")
+                if not thermal_monitor.wait_for_cooling():
+                    return None, {}, "❌ System too hot - generation cancelled for safety"
+            
             logger.info(f"Generating image: {prompt[:50]}...")
             start_time = time.time()
             
@@ -275,56 +283,48 @@ class SystemIntegration:
                 output_type=OutputType.IMAGE,
                 style_config=StyleConfig(),
                 compliance_mode=ComplianceMode.RESEARCH_SAFE,
-                hardware_constraints=self.hardware_config or {},
+                hardware_constraints=self.hardware_config,
                 additional_params=kwargs
             )
             
-            # Generate using pipeline
-            if self.image_pipeline and SYSTEM_AVAILABLE:
-                result = self.image_pipeline.generate(request)
-                
-                if result.success:
-                    generation_info = {
-                        "prompt": prompt,
-                        "model": result.model_used,
-                        "generation_time": f"{result.generation_time:.2f}s",
-                        "output_path": str(result.output_path) if result.output_path else None,
-                        **kwargs
-                    }
-                    
-                    # Load and return the image
-                    if result.output_path and result.output_path.exists():
-                        try:
-                            from PIL import Image
-                            image = Image.open(result.output_path)
-                            return image, generation_info, "✅ Image generated successfully!"
-                        except Exception as e:
-                            logger.error(f"Failed to load generated image: {e}")
-                    
-                    return None, generation_info, "✅ Image generated (file saved)"
-                else:
-                    return None, {}, f"❌ Generation failed: {result.error_message}"
+            # Generate using pipeline (NO FALLBACKS)
+            if not self.image_pipeline:
+                raise RuntimeError("Image pipeline not available")
             
-            else:
-                # Mock generation for development
-                generation_time = time.time() - start_time
+            result = self.image_pipeline.generate(request)
+            
+            if result.success:
                 generation_info = {
                     "prompt": prompt,
-                    "model": kwargs.get("model", "stable-diffusion-v1-5"),
-                    "generation_time": f"{generation_time:.2f}s",
-                    "mode": "mock",
+                    "model": result.model_used,
+                    "generation_time": f"{result.generation_time:.2f}s",
+                    "output_path": str(result.output_path) if result.output_path else None,
+                    "thermal_safe": thermal_monitor.is_safe_for_ai_workload(),
                     **kwargs
                 }
                 
-                return None, generation_info, "✅ Mock generation completed (install dependencies for real generation)"
+                # Load and return the image
+                if result.output_path and result.output_path.exists():
+                    try:
+                        from PIL import Image
+                        image = Image.open(result.output_path)
+                        return image, generation_info, "✅ Image generated successfully!"
+                    except Exception as e:
+                        logger.error(f"Failed to load generated image: {e}")
+                        raise RuntimeError(f"Failed to load generated image: {e}")
+                
+                return None, generation_info, "✅ Image generated (file saved)"
+            else:
+                logger.error(f"Image generation failed: {result.error_message}")
+                return None, {}, f"❌ Generation failed: {result.error_message}"
             
         except Exception as e:
-            logger.error(f"Image generation failed: {e}")
+            logger.error(f"CRITICAL: Image generation failed: {e}")
             return None, {}, f"❌ Generation error: {str(e)}"
     
     def generate_video(self, prompt: str, conditioning_image=None, **kwargs) -> Tuple[Optional[Any], Dict[str, Any], str]:
         """
-        Generate a video from a text prompt and optional conditioning image.
+        Generate a video from a text prompt with thermal safety checks.
         
         Args:
             prompt: Text description of the video
@@ -338,6 +338,15 @@ class SystemIntegration:
             if not prompt.strip():
                 return None, {}, "❌ Please enter a prompt"
             
+            # MANDATORY: Thermal safety check before generation
+            from ..core.thermal_monitor import get_thermal_monitor
+            
+            thermal_monitor = get_thermal_monitor()
+            if not thermal_monitor.is_safe_for_ai_workload():
+                logger.warning("System too hot for video generation - waiting for cooling")
+                if not thermal_monitor.wait_for_cooling():
+                    return None, {}, "❌ System too hot - video generation cancelled for safety"
+            
             logger.info(f"Generating video: {prompt[:50]}...")
             start_time = time.time()
             
@@ -347,65 +356,63 @@ class SystemIntegration:
                 output_type=OutputType.VIDEO,
                 style_config=StyleConfig(),
                 compliance_mode=ComplianceMode.RESEARCH_SAFE,
-                hardware_constraints=self.hardware_config or {},
+                hardware_constraints=self.hardware_config,
                 additional_params={
                     "conditioning_image": conditioning_image,
                     **kwargs
                 }
             )
             
-            # Generate using pipeline
-            if self.video_pipeline and SYSTEM_AVAILABLE:
-                result = self.video_pipeline.generate(request)
-                
-                if result.success:
-                    generation_info = {
-                        "prompt": prompt,
-                        "model": result.model_used,
-                        "generation_time": f"{result.generation_time:.2f}s",
-                        "output_path": str(result.output_path) if result.output_path else None,
-                        "has_conditioning_image": conditioning_image is not None,
-                        **kwargs
-                    }
-                    
-                    return str(result.output_path) if result.output_path else None, generation_info, "✅ Video generated successfully!"
-                else:
-                    return None, {}, f"❌ Generation failed: {result.error_message}"
+            # Generate using pipeline (NO FALLBACKS)
+            if not self.video_pipeline:
+                raise RuntimeError("Video pipeline not available")
             
-            else:
-                # Mock generation for development
-                generation_time = time.time() - start_time
+            result = self.video_pipeline.generate(request)
+            
+            if result.success:
                 generation_info = {
                     "prompt": prompt,
-                    "model": kwargs.get("model", "stable-video-diffusion"),
-                    "generation_time": f"{generation_time:.2f}s",
-                    "mode": "mock",
+                    "model": result.model_used,
+                    "generation_time": f"{result.generation_time:.2f}s",
+                    "output_path": str(result.output_path) if result.output_path else None,
                     "has_conditioning_image": conditioning_image is not None,
+                    "thermal_safe": thermal_monitor.is_safe_for_ai_workload(),
                     **kwargs
                 }
                 
-                return None, generation_info, "✅ Mock generation completed (install dependencies for real generation)"
+                return str(result.output_path) if result.output_path else None, generation_info, "✅ Video generated successfully!"
+            else:
+                logger.error(f"Video generation failed: {result.error_message}")
+                return None, {}, f"❌ Generation failed: {result.error_message}"
             
         except Exception as e:
-            logger.error(f"Video generation failed: {e}")
+            logger.error(f"CRITICAL: Video generation failed: {e}")
             return None, {}, f"❌ Generation error: {str(e)}"
     
     def get_hardware_info(self) -> Dict[str, Any]:
-        """Get current hardware information."""
+        """Get current hardware information with thermal data."""
         if not self.hardware_config:
-            return {
-                "gpu_model": "Unknown",
-                "vram_total": 0,
-                "vram_free": 0,
-                "cuda_available": False
-            }
+            raise RuntimeError("Hardware configuration not available")
+        
+        # Get real-time thermal information
+        try:
+            from ..core.thermal_monitor import get_thermal_monitor
+            thermal_monitor = get_thermal_monitor()
+            thermal_summary = thermal_monitor.get_thermal_summary()
+        except Exception as e:
+            logger.error(f"Failed to get thermal information: {e}")
+            thermal_summary = {"status": "error", "safe": False}
         
         return {
             "gpu_model": self.hardware_config.gpu_model,
             "vram_total": self.hardware_config.vram_size,
-            "vram_free": self.hardware_config.vram_size,  # Simplified
+            "vram_free": self.hardware_config.vram_size,  # TODO: Get real VRAM usage
             "cuda_available": self.hardware_config.cuda_available,
-            "optimization_level": self.hardware_config.optimization_level
+            "optimization_level": self.hardware_config.optimization_level,
+            "thermal_status": thermal_summary["status"],
+            "thermal_safe": thermal_summary["safe"],
+            "max_temperature": thermal_summary.get("max_temp", 0),
+            "avg_temperature": thermal_summary.get("avg_temp", 0)
         }
     
     def download_model(self, model_id: str) -> bool:

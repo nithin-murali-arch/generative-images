@@ -1,19 +1,14 @@
 """
-User interface components and research dashboard.
+User interface components for AI content generation.
 
-This module provides the Gradio-based research interface for the Academic
-Multimodal LLM Experiment System, including generation controls, compliance
-management, and experiment tracking.
+This module provides the modern Gradio-based interface with hardware-aware
+model selection, thermal safety integration, and cross-platform support.
 """
 
-from .research_interface_simple import (
-    ResearchInterface,
-    UIState,
-    ComplianceMode
-)
+from .modern_interface import create_interface
+from .ui_integration import UIIntegration
 
 __all__ = [
-    'ResearchInterface',
-    'UIState', 
-    'ComplianceMode'
+    'create_interface',
+    'UIIntegration'
 ]

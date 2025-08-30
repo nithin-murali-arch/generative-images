@@ -1,7 +1,7 @@
-# AI Content Generator - Core Dependencies
+# AI Content Generator - Essential Dependencies
 # Install PyTorch first: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
-# Core AI libraries (latest versions)
+# Core AI libraries
 torch>=2.1.0
 torchvision>=0.16.0
 transformers>=4.36.0
@@ -19,28 +19,20 @@ imageio-ffmpeg>=0.4.9
 
 # Scientific computing
 numpy>=1.24.0
-scipy>=1.11.0
 
-# Hardware optimization
-xformers>=0.0.23  # Memory-efficient attention (optional)
-bitsandbytes>=0.41.0  # Quantization support (optional)
+# Hardware optimization (optional but recommended)
+xformers>=0.0.23
+bitsandbytes>=0.41.0
 
 # Model management
 huggingface-hub>=0.19.0
 safetensors>=0.4.0
 
-# Utilities
+# System utilities
+psutil>=5.9.0
 tqdm>=4.66.0
 requests>=2.31.0
-
-# Development tools (optional)
-pytest>=7.4.0
-black>=23.0.0
-flake8>=6.0.0
 
 # Optional: API server
 fastapi>=0.104.0
 uvicorn>=0.24.0
-
-# Optional: Experiment tracking
-wandb>=0.16.0

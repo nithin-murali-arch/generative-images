@@ -229,7 +229,7 @@ class ModelRegistry:
             model_id="stabilityai/stable-video-diffusion-img2vid-xt-1-1",
             model_name="Stable Video Diffusion XT 1.1",
             model_type=ModelType.IMAGE_TO_VIDEO,
-            tier=ModelTier.BALANCED,
+            tier=ModelTier.HIGH_END,
             min_vram_mb=12000,
             recommended_vram_mb=16000,
             min_ram_mb=24000,
@@ -257,7 +257,7 @@ class ModelRegistry:
             model_id="guoyww/animatediff-motion-adapter-v1-5-3",
             model_name="AnimateDiff v3",
             model_type=ModelType.TEXT_TO_IMAGE,  # Text to video via SD base
-            tier=ModelTier.BALANCED,
+            tier=ModelTier.MID_TIER,
             min_vram_mb=8000,
             recommended_vram_mb=12000,
             min_ram_mb=16000,
@@ -284,7 +284,7 @@ class ModelRegistry:
             model_id="THUDM/CogVideoX-2b",
             model_name="CogVideoX 2B",
             model_type=ModelType.TEXT_TO_IMAGE,
-            tier=ModelTier.QUALITY,
+            tier=ModelTier.HIGH_END,
             min_vram_mb=10000,
             recommended_vram_mb=16000,
             min_ram_mb=20000,
@@ -313,7 +313,7 @@ class ModelRegistry:
             model_id="segmind/tiny-sd",
             model_name="Tiny SD",
             model_type=ModelType.TEXT_TO_IMAGE,
-            tier=ModelTier.FAST,
+            tier=ModelTier.LIGHTWEIGHT,
             min_vram_mb=1000,
             recommended_vram_mb=2000,
             min_ram_mb=4000,
@@ -367,8 +367,8 @@ class ModelRegistry:
             return None
         
         if prefer_speed:
-            # Prefer FAST tier models
-            fast_models = [m for m in compatible if m.tier == ModelTier.FAST]
+            # Prefer LIGHTWEIGHT tier models
+            fast_models = [m for m in compatible if m.tier == ModelTier.LIGHTWEIGHT]
             if fast_models:
                 return fast_models[0]
         

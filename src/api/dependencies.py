@@ -11,7 +11,7 @@ from typing import Optional
 from ..core.llm_controller import LLMController
 from ..pipelines.image_generation import ImageGenerationPipeline
 from ..pipelines.video_generation import VideoGenerationPipeline
-from ..hardware.detector import HardwareDetector
+from ..core.cross_platform_hardware import detect_cross_platform_hardware
 from ..data.experiment_tracker import ExperimentTracker
 from ..core.interfaces import HardwareConfig
 

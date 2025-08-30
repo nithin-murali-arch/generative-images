@@ -55,27 +55,62 @@ def check_dependencies():
     
     return available, missing
 
+def detect_gpu():
+    """Detect if NVIDIA GPU is available."""
+    try:
+        result = subprocess.run(["nvidia-smi"], capture_output=True, timeout=5)
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
 def get_installation_command(platform_name):
     """Get the appropriate installation command for the platform."""
+    has_gpu = detect_gpu()
+    
     if platform_name == "windows":
+        if has_gpu:
+            pytorch_cmd = "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
+            gpu_note = "# NVIDIA GPU detected - installing CUDA support"
+        else:
+            pytorch_cmd = "pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu"
+            gpu_note = "# No NVIDIA GPU detected - installing CPU-only version"
+        
         return [
             "# Windows Installation:",
+            gpu_note,
             "python -m pip install --upgrade pip",
-            "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121",
+            pytorch_cmd,
             "pip install -r requirements.txt"
         ]
     elif platform_name == "linux":
+        if has_gpu:
+            pytorch_cmd = "pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121"
+            gpu_note = "# NVIDIA GPU detected - installing CUDA support"
+        else:
+            pytorch_cmd = "pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu"
+            gpu_note = "# No NVIDIA GPU detected - installing CPU-only version"
+        
         return [
             "# Linux Installation:",
+            gpu_note,
             "python3 -m pip install --upgrade pip",
-            "pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121",
+            pytorch_cmd,
             "pip3 install -r requirements.txt"
         ]
     elif platform_name == "macos":
+        arch = platform.machine().lower()
+        if "arm" in arch or "m1" in arch or "m2" in arch:
+            pytorch_cmd = "pip3 install torch torchvision"
+            gpu_note = "# Apple Silicon detected - installing with MPS support"
+        else:
+            pytorch_cmd = "pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu"
+            gpu_note = "# Intel Mac detected - installing CPU-only version"
+        
         return [
             "# macOS Installation:",
+            gpu_note,
             "python3 -m pip install --upgrade pip",
-            "pip3 install torch torchvision",
+            pytorch_cmd,
             "pip3 install -r requirements.txt"
         ]
     else:
@@ -101,6 +136,14 @@ def print_platform_info(platform_name):
     print(f"{icon} Platform: {platform_name.title()}")
     print(f"🖥️  System: {platform.system()} {platform.release()}")
     print(f"🏗️  Architecture: {platform.machine()}")
+    
+    # Check GPU availability
+    has_gpu = detect_gpu()
+    if has_gpu:
+        print("🎮 GPU: NVIDIA GPU detected (CUDA support available)")
+    else:
+        print("💻 GPU: No NVIDIA GPU detected (CPU-only mode)")
+    
     print()
 
 def print_python_info():
