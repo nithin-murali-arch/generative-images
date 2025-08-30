@@ -19,6 +19,8 @@ from ..core.interfaces import (
     HardwareConfig, StyleConfig, ComplianceMode
 )
 from ..core.resource_manager import get_resource_manager
+from ..core.hardware_profiles import HardwareProfileManager
+from ..core.memory_manager import MemoryManager
 from .frame_processor import FrameProcessor
 from .temporal_consistency import TemporalConsistencyEngine
 

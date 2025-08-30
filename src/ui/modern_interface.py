@@ -374,8 +374,7 @@ class ModernInterface:
                 # Conditioning image
                 components['conditioning_image'] = gr.Image(
                     label="📸 Starting Image (Optional)",
-                    type="pil",
-                    info="Upload an image to start the video from"
+                    type="pil"
                 )
                 
                 # Easy mode controls

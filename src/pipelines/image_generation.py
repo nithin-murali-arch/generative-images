@@ -22,6 +22,8 @@ from ..core.interfaces import (
 from ..core.gpu_optimizer import get_gpu_optimizer, GPUOptimizationConfig
 from ..core.resource_manager import get_resource_manager, ResourceTask, ResourceType, TaskPriority
 from ..core.resource_manager import get_resource_manager
+from ..core.hardware_profiles import HardwareProfileManager
+from ..core.memory_manager import MemoryManager
 
 logger = logging.getLogger(__name__)
 

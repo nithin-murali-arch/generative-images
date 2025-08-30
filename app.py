@@ -73,10 +73,10 @@ Examples:
         
         # MANDATORY: Initialize thermal monitoring first
         try:
-            from src.core.thermal_monitor import get_thermal_monitor, ensure_thermal_safety
+            from src.core.thermal_monitor import get_thermal_monitor, ensure_startup_thermal_safety
             
             logger.info("🌡️ Initializing thermal monitoring...")
-            if not ensure_thermal_safety():
+            if not ensure_startup_thermal_safety():
                 logger.error("🔥 CRITICAL: System too hot to start safely")
                 logger.error("Please ensure adequate cooling and try again")
                 sys.exit(1)
@@ -101,9 +101,15 @@ Examples:
         
         # Final thermal check before launching
         thermal_monitor = get_thermal_monitor()
-        if not thermal_monitor.is_safe_for_ai_workload():
-            logger.error("🔥 CRITICAL: System thermal state unsafe for AI workloads")
+        if not thermal_monitor.is_safe_for_startup():
+            logger.error("🔥 CRITICAL: System thermal state unsafe for startup")
             sys.exit(1)
+        
+        # Log thermal status
+        summary = thermal_monitor.get_thermal_summary()
+        if summary.get("hot_components"):
+            logger.warning(f"⚠️ Hot components detected: {', '.join(summary['hot_components'])}")
+            logger.info("Server will start but AI workloads will be monitored for thermal safety")
         
         logger.info(f"🌐 Launching interface on http://{args.host}:{args.port}")
         if args.share:

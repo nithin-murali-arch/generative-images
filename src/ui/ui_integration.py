@@ -65,10 +65,10 @@ class SystemIntegration:
                 raise RuntimeError("Cannot operate without core system components")
             
             # MANDATORY: Initialize thermal monitoring FIRST
-            from ..core.thermal_monitor import get_thermal_monitor, ensure_thermal_safety
+            from ..core.thermal_monitor import get_thermal_monitor, ensure_startup_thermal_safety
             
             logger.info("Starting thermal monitoring...")
-            if not ensure_thermal_safety():
+            if not ensure_startup_thermal_safety():
                 raise RuntimeError("System too hot - cannot proceed safely")
             
             # MANDATORY: Real hardware detection with validation
@@ -115,8 +115,14 @@ class SystemIntegration:
             
             # Final thermal check before marking as initialized
             thermal_monitor = get_thermal_monitor()
-            if not thermal_monitor.is_safe_for_ai_workload():
+            if not thermal_monitor.is_safe_for_startup():
                 raise RuntimeError("System thermal state unsafe after initialization")
+            
+            # Log thermal status for initialization
+            summary = thermal_monitor.get_thermal_summary()
+            if summary.get("hot_components"):
+                logger.warning(f"Hot components detected during initialization: {', '.join(summary['hot_components'])}")
+                logger.info("System initialized but AI workloads will be monitored for thermal safety")
             
             self.is_initialized = True
             logger.info("System integration initialized successfully with thermal safety")

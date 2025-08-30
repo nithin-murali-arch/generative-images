@@ -71,7 +71,7 @@ class ThermalMonitor:
     COOLING_TARGET = 45.0  # Must cool to this temperature before resuming
     COOLING_TIMEOUT = 300  # Maximum 5 minutes cooling wait
     
-    def __init__(self, monitoring_interval: float = 2.0):
+    def __init__(self, monitoring_interval: float = 3.0):
         """
         Initialize thermal monitor.
         
@@ -84,6 +84,10 @@ class ThermalMonitor:
         self.thermal_readings: Dict[str, ThermalReading] = {}
         self.thermal_callbacks: List[Callable[[Dict[str, ThermalReading]], None]] = []
         self.emergency_shutdown_callbacks: List[Callable[[], None]] = []
+        
+        # Cooling state tracking - once we hit 70°C, must cool to 45°C
+        self.cooling_required: Dict[str, bool] = {}  # Track which components need cooling
+        self.last_hot_time: Dict[str, float] = {}    # Track when components last exceeded 70°C
         
         # Platform detection
         self.platform = platform.system()
@@ -143,10 +147,22 @@ class ThermalMonitor:
                     self._trigger_emergency_shutdown("Lost thermal sensors")
                     break
                 
-                # Update thermal readings
+                # Update thermal readings with cooling hysteresis
                 current_time = time.time()
                 for component, temp in temperatures.items():
-                    state = self._classify_temperature(temp)
+                    # Check if component hit 70°C threshold
+                    if temp >= self.TEMP_PAUSE:
+                        self.cooling_required[component] = True
+                        self.last_hot_time[component] = current_time
+                        logger.warning(f"{component}: {temp:.1f}°C - COOLING REQUIRED until {self.COOLING_TARGET}°C")
+                    
+                    # Check if component has cooled sufficiently
+                    elif temp <= self.COOLING_TARGET and self.cooling_required.get(component, False):
+                        self.cooling_required[component] = False
+                        logger.info(f"{component}: {temp:.1f}°C - COOLED SUFFICIENTLY, resuming operations")
+                    
+                    # Classify temperature state with hysteresis
+                    state = self._classify_temperature_with_hysteresis(component, temp)
                     
                     reading = ThermalReading(
                         component=component,
@@ -160,7 +176,8 @@ class ThermalMonitor:
                     
                     # Log temperature changes
                     if state != ThermalState.SAFE:
-                        logger.warning(f"{component}: {temp:.1f}°C ({state.value})")
+                        cooling_status = " (COOLING REQUIRED)" if self.cooling_required.get(component, False) else ""
+                        logger.warning(f"{component}: {temp:.1f}°C ({state.value}){cooling_status}")
                 
                 # Check for emergency conditions
                 self._check_emergency_conditions()
@@ -401,10 +418,38 @@ class ThermalMonitor:
         else:
             return ThermalState.EMERGENCY
     
+    def _classify_temperature_with_hysteresis(self, component: str, temp_c: float) -> ThermalState:
+        """
+        Classify temperature with hysteresis - once a component hits 70°C,
+        it must cool to 45°C before being considered safe again.
+        """
+        # If component requires cooling (hit 70°C), it's not safe until it cools to 45°C
+        if self.cooling_required.get(component, False):
+            if temp_c > self.COOLING_TARGET:
+                # Still needs cooling - classify as at least HOT
+                if temp_c >= self.TEMP_CRITICAL:
+                    return ThermalState.EMERGENCY
+                elif temp_c >= self.TEMP_HOT:
+                    return ThermalState.CRITICAL
+                else:
+                    return ThermalState.HOT  # Force HOT state until cooled
+            else:
+                # Has cooled sufficiently - use normal classification
+                return self._classify_temperature(temp_c)
+        else:
+            # Normal classification
+            return self._classify_temperature(temp_c)
+    
     def _check_emergency_conditions(self):
-        """Check for emergency thermal conditions."""
+        """Check for emergency thermal conditions - kill process at 80°C."""
         for component, reading in self.thermal_readings.items():
-            if reading.state == ThermalState.EMERGENCY:
+            if reading.temperature_c >= 80.0:  # CRITICAL: Kill process at 80°C
+                logger.critical(f"CRITICAL TEMPERATURE: {component} at {reading.temperature_c:.1f}°C - KILLING PROCESS!")
+                self._trigger_emergency_shutdown(f"{component} critical temperature")
+                # Force immediate process termination
+                import os
+                os._exit(1)
+            elif reading.state == ThermalState.EMERGENCY:
                 logger.critical(f"EMERGENCY: {component} at {reading.temperature_c:.1f}°C!")
                 self._trigger_emergency_shutdown(f"{component} overheating")
                 return
@@ -428,7 +473,7 @@ class ThermalMonitor:
         return self.thermal_readings.copy()
     
     def is_safe_for_ai_workload(self) -> bool:
-        """Check if all components are safe for AI workloads."""
+        """Check if all components are safe for AI workloads with cooling hysteresis."""
         if not self.thermal_readings:
             logger.error("No thermal readings available - cannot determine safety")
             return False
@@ -443,6 +488,13 @@ class ThermalMonitor:
             logger.error("No valid thermal readings available")
             return False
         
+        # Check if any component requires cooling (hit 70°C and hasn't cooled to 45°C)
+        for component in valid_readings.keys():
+            if self.cooling_required.get(component, False):
+                logger.debug(f"{component} requires cooling before AI workload")
+                return False
+        
+        # Check normal temperature safety
         for reading in valid_readings.values():
             if not reading.is_safe_for_ai_workload():
                 return False
@@ -486,7 +538,8 @@ class ThermalMonitor:
     
     def wait_for_cooling(self, timeout: float = COOLING_TIMEOUT) -> bool:
         """
-        Wait for all components to cool to safe temperatures.
+        Wait for all components to cool to safe temperatures with hysteresis.
+        Components that hit 70°C must cool to 45°C before resuming.
         
         Args:
             timeout: Maximum time to wait in seconds
@@ -502,16 +555,27 @@ class ThermalMonitor:
                 logger.info("System cooled to safe temperatures")
                 return True
             
-            # Log current temperatures
+            # Log current temperatures and cooling requirements
+            cooling_components = []
             hot_components = []
+            
             for component, reading in self.thermal_readings.items():
-                if reading.requires_cooling():
-                    hot_components.append(f"{component}: {reading.temperature_c:.1f}°C")
+                if reading.temperature_c > 0:  # Valid reading
+                    if self.cooling_required.get(component, False):
+                        cooling_components.append(f"{component}: {reading.temperature_c:.1f}°C (needs {self.COOLING_TARGET}°C)")
+                    elif reading.requires_cooling():
+                        hot_components.append(f"{component}: {reading.temperature_c:.1f}°C")
             
+            status_parts = []
+            if cooling_components:
+                status_parts.append(f"Cooling required: {', '.join(cooling_components)}")
             if hot_components:
-                logger.info(f"Cooling... Hot components: {', '.join(hot_components)}")
+                status_parts.append(f"Hot: {', '.join(hot_components)}")
             
-            time.sleep(5.0)  # Check every 5 seconds
+            if status_parts:
+                logger.info(f"Cooling... {' | '.join(status_parts)}")
+            
+            time.sleep(3.0)  # Check every 3 seconds (matches monitoring interval)
         
         logger.error(f"Cooling timeout after {timeout}s")
         return False
@@ -525,28 +589,45 @@ class ThermalMonitor:
         self.emergency_shutdown_callbacks.append(callback)
     
     def get_thermal_summary(self) -> Dict[str, any]:
-        """Get thermal summary for logging/display."""
+        """Get thermal summary for logging/display with cooling state."""
         if not self.thermal_readings:
-            return {"status": "no_readings", "safe": False}
+            return {"status": "no_readings", "safe": False, "cooling_required": []}
         
-        max_temp = max(r.temperature_c for r in self.thermal_readings.values())
-        min_temp = min(r.temperature_c for r in self.thermal_readings.values())
-        avg_temp = sum(r.temperature_c for r in self.thermal_readings.values()) / len(self.thermal_readings)
+        # Filter valid readings
+        valid_readings = {
+            comp: reading for comp, reading in self.thermal_readings.items()
+            if reading.temperature_c > 0
+        }
+        
+        if not valid_readings:
+            return {"status": "no_valid_readings", "safe": False, "cooling_required": []}
+        
+        max_temp = max(r.temperature_c for r in valid_readings.values())
+        min_temp = min(r.temperature_c for r in valid_readings.values())
+        avg_temp = sum(r.temperature_c for r in valid_readings.values()) / len(valid_readings)
         
         hot_components = [
             f"{comp}: {reading.temperature_c:.1f}°C"
-            for comp, reading in self.thermal_readings.items()
+            for comp, reading in valid_readings.items()
             if reading.state not in [ThermalState.SAFE, ThermalState.WARM]
+        ]
+        
+        cooling_required = [
+            f"{comp}: {reading.temperature_c:.1f}°C (needs {self.COOLING_TARGET}°C)"
+            for comp, reading in valid_readings.items()
+            if self.cooling_required.get(comp, False)
         ]
         
         return {
             "status": "active",
             "safe": self.is_safe_for_ai_workload(),
-            "component_count": len(self.thermal_readings),
+            "component_count": len(valid_readings),
             "max_temp": max_temp,
             "min_temp": min_temp,
             "avg_temp": avg_temp,
-            "hot_components": hot_components
+            "hot_components": hot_components,
+            "cooling_required": cooling_required,
+            "cooling_count": len(cooling_required)
         }
 
 
@@ -574,6 +655,17 @@ def ensure_thermal_safety() -> bool:
         return monitor.wait_for_cooling()
     
     return True
+
+
+def ensure_startup_thermal_safety() -> bool:
+    """Ensure thermal safety for server startup (less strict than AI workloads)."""
+    monitor = get_thermal_monitor()
+    
+    if not monitor.is_monitoring:
+        monitor.start_monitoring()
+        time.sleep(3.0)  # Allow initial readings
+    
+    return monitor.is_safe_for_startup()
 
 
 if __name__ == "__main__":
