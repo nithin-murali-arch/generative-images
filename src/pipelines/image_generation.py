@@ -436,39 +436,65 @@ class ImageGenerationPipeline(IGenerationPipeline):
         return self._load_model(model_name)
     
     def _initialize_model_configs(self) -> Dict[str, ModelConfig]:
-        """Initialize model configurations."""
-        return {
-            ImageModel.STABLE_DIFFUSION_V1_5.value: ModelConfig(
-                model_id="runwayml/stable-diffusion-v1-5",
-                pipeline_class="StableDiffusionPipeline",
-                min_vram_mb=0,  # Allow CPU-only execution
-                recommended_vram_mb=4000,
-                max_resolution=768,
-                default_steps=20,
-                supports_negative_prompt=True,
-                supports_guidance_scale=True
-            ),
-            ImageModel.SDXL_TURBO.value: ModelConfig(
-                model_id="stabilityai/sdxl-turbo",
-                pipeline_class="StableDiffusionXLPipeline",
-                min_vram_mb=7000,
-                recommended_vram_mb=8000,
-                max_resolution=1024,
-                default_steps=1,  # Turbo model uses 1 step
-                supports_negative_prompt=False,  # Turbo doesn't use negative prompts
-                supports_guidance_scale=False   # Turbo uses guidance_scale=0.0
-            ),
-            ImageModel.FLUX_SCHNELL.value: ModelConfig(
-                model_id="black-forest-labs/FLUX.1-schnell",
-                pipeline_class="DiffusionPipeline",
-                min_vram_mb=20000,
-                recommended_vram_mb=24000,
-                max_resolution=1024,
-                default_steps=4,  # Schnell uses 4 steps
-                supports_negative_prompt=False,
-                supports_guidance_scale=False
-            )
-        }
+        """Initialize model configurations using the model registry."""
+        try:
+            from ..core.model_registry import get_model_registry, ModelType
+            
+            registry = get_model_registry()
+            image_models = registry.get_models_by_type(ModelType.TEXT_TO_IMAGE)
+            
+            # Convert registry models to our internal format
+            configs = {}
+            for model in image_models:
+                # Map registry model to our ModelConfig format
+                configs[model.model_name.lower().replace(" ", "_").replace(".", "_")] = ModelConfig(
+                    model_id=model.model_id,
+                    pipeline_class=model.pipeline_class,
+                    min_vram_mb=model.min_vram_mb,
+                    recommended_vram_mb=model.recommended_vram_mb,
+                    max_resolution=model.max_resolution,
+                    default_steps=model.default_steps,
+                    supports_negative_prompt=model.supports_negative_prompt,
+                    supports_guidance_scale=model.supports_guidance_scale
+                )
+            
+            return configs
+            
+        except Exception as e:
+            logger.error(f"Failed to load models from registry: {e}")
+            # Fallback to original hardcoded models
+            return {
+                ImageModel.STABLE_DIFFUSION_V1_5.value: ModelConfig(
+                    model_id="runwayml/stable-diffusion-v1-5",
+                    pipeline_class="StableDiffusionPipeline",
+                    min_vram_mb=2000,
+                    recommended_vram_mb=4000,
+                    max_resolution=768,
+                    default_steps=20,
+                    supports_negative_prompt=True,
+                    supports_guidance_scale=True
+                ),
+                ImageModel.SDXL_TURBO.value: ModelConfig(
+                    model_id="stabilityai/sdxl-turbo",
+                    pipeline_class="StableDiffusionXLPipeline",
+                    min_vram_mb=7000,
+                    recommended_vram_mb=8000,
+                    max_resolution=1024,
+                    default_steps=1,
+                    supports_negative_prompt=False,
+                    supports_guidance_scale=False
+                ),
+                ImageModel.FLUX_SCHNELL.value: ModelConfig(
+                    model_id="black-forest-labs/FLUX.1-schnell",
+                    pipeline_class="DiffusionPipeline",
+                    min_vram_mb=20000,
+                    recommended_vram_mb=24000,
+                    max_resolution=1024,
+                    default_steps=4,
+                    supports_negative_prompt=False,
+                    supports_guidance_scale=False
+                )
+            }
     
     def _check_dependencies(self) -> bool:
         """Check if required dependencies are available."""

@@ -87,4 +87,14 @@ wandb/
 
 # Config overrides (keep template)
 config/system_config.json
-!config/system_config.json
+!config/system_config.jsonoutputs/
+models/cache/
+*.db
+
+# Python cache
+*.pyc
+*.pyo
+
+# IDE files
+
+# OS files

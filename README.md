@@ -1,81 +1,107 @@
-# Academic Multimodal LLM Experiment System
+# 🎨 AI Content Generator
 
-A research-focused platform for ethical experimentation with multimodal AI generation on consumer gaming hardware. This system emphasizes copyright compliance, hardware optimization, and systematic research methodology while providing a seamless interface for generating images and videos from text prompts.
+A modern, user-friendly interface for generating images and videos using the latest AI models. Features automatic hardware optimization and both easy and advanced modes for users of all skill levels.
 
-## Features
+## ✨ Features
 
-- **Copyright-Aware Data Management**: Automatic classification and ethical handling of training data
-- **Hardware Optimization**: Adaptive optimization for 4GB to 24GB+ VRAM configurations
-- **Multimodal Generation**: Support for both image and video generation with various models
-- **Research Ethics**: Built-in compliance modes and attribution tracking
-- **Local Development**: Complete local setup without cloud dependencies
-- **Experiment Tracking**: Comprehensive logging and result comparison
+- **🖼️ Image Generation**: Create stunning images from text prompts using the latest models
+- **🎬 Video Generation**: Generate videos from text or images with state-of-the-art models  
+- **🔄 Easy/Advanced Modes**: Simple interface for beginners, full control for power users
+- **⚡ Hardware Optimization**: Automatic optimization for 2GB to 24GB+ VRAM
+- **🤖 Latest Models**: Updated model registry with FLUX.1, SDXL, Stable Video Diffusion
+- **🎯 Smart Fallbacks**: Automatic model selection based on your hardware
 
-## Supported Hardware
+## 🖥️ Supported Hardware
 
 ### Minimum Requirements
-- **GPU**: GTX 1650 (4GB VRAM) or equivalent
-- **RAM**: 16GB system RAM
-- **Storage**: 50GB free space for models and data
-- **OS**: Windows 10/11 with CUDA support
+- **GPU**: GTX 1050 (2GB VRAM) or equivalent
+- **RAM**: 8GB system RAM  
+- **Storage**: 20GB free space for models
+- **OS**: Windows 10/11, macOS, or Linux with CUDA support
 
 ### Recommended Configurations
-- **Entry Level**: GTX 1650 (4GB) - SD 1.5, basic image generation
-- **Mid Range**: RTX 3070 (8GB) - SDXL-Turbo, faster generation
-- **High End**: RTX 4090 (24GB) - FLUX.1, video generation, concurrent models
+- **Budget**: GTX 1650 (4GB) → Stable Diffusion 1.5, fast image generation
+- **Mid-Range**: RTX 3070 (8GB) → SDXL, high-quality images
+- **High-End**: RTX 4090 (24GB) → FLUX.1, video generation, best quality
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Environment Setup
+### 🌍 **Cross-Platform Support**
+Works on **Windows**, **Linux**, and **macOS** with automatic hardware detection!
+
+### 1. **Platform-Specific Quick Launch**
+
+#### 🪟 **Windows** (One-Click)
+```cmd
+# Double-click or run in Command Prompt
+run_windows.bat
+```
+
+#### 🐧 **Linux/Ubuntu** (One-Click)
 ```bash
-# Create virtual environment
-python -m venv multimodal_research
-multimodal_research\Scripts\activate  # Windows
+# Make executable and run
+chmod +x run_linux.sh
+./run_linux.sh
+```
 
-# Install dependencies
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#### 🍎 **macOS** (One-Click)
+```bash
+# Use the Linux script (works on macOS)
+chmod +x run_linux.sh
+./run_linux.sh
+```
+
+#### 🌐 **Universal Launcher** (Any Platform)
+```bash
+# Cross-platform launcher with auto-detection
+python3 launch.py
+
+# Check system specs first
+python3 system_specs.py
+
+# Check dependencies only
+python3 launch.py --check
+```
+
+### 2. **Manual Installation** (If Needed)
+
+#### Using UV (Recommended - Faster)
+```bash
+# Install UV
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/Mac
+# or
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# Setup project
+uv sync
+uv add torch torchvision --index pytorch-cu121
+```
+
+#### Using pip (Traditional)
+```bash
+# Windows
+python -m venv ai_generator
+ai_generator\Scripts\activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
+
+# Linux/macOS
+python3 -m venv ai_generator
+source ai_generator/bin/activate
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip3 install -r requirements.txt
 ```
 
-### 2. Install Ollama for LLM Serving
-```bash
-# Install Ollama
-winget install ollama
+### 3. **Launch & Generate**
+1. **Hardware Detection**: System automatically detects your GPU and VRAM
+2. **Model Recommendations**: Shows only compatible models for your hardware
+3. **Auto-Download**: Recommended models download automatically
+4. **Start Creating**: Use Easy mode for quick results!
 
-# Download lightweight LLM
-ollama pull phi3:mini  # 2.3GB model for 4GB VRAM systems
-# OR for higher-end systems:
-ollama pull llama3.1:8b  # 4.7GB model for 16GB+ VRAM
-```
-
-### 3. Initialize System
-```python
-from src.core.config import ConfigManager
-from src.hardware.detector import HardwareDetector
-
-# Initialize configuration
-config_manager = ConfigManager()
-config = config_manager.load_config()
-
-# Detect hardware and optimize
-detector = HardwareDetector()
-hardware_config = detector.detect_hardware()
-config_manager.update_hardware_config(hardware_config)
-```
-
-### 4. Run Basic Generation
-```python
-from src.main import AcademicMultimodalSystem
-
-# Initialize system
-system = AcademicMultimodalSystem()
-
-# Generate image with copyright compliance
-result = system.generate_image(
-    prompt="A serene landscape with mountains",
-    compliance_mode="research_safe"  # Uses only PD + CC + Fair Use content
-)
-```
+### 📖 **Detailed Setup Guides**
+- 🌍 **[Cross-Platform Setup](CROSS_PLATFORM_SETUP.md)** - Comprehensive platform-specific instructions
+- 🚀 **[UV Setup Guide](UV_SETUP.md)** - Fast package management with UV
+- 🖥️ **[Hardware Features](HARDWARE_AWARE_FEATURES.md)** - Hardware detection and optimization
 
 ## Project Structure
 

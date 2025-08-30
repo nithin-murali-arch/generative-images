@@ -1,0 +1,128 @@
+[project]
+name = "ai-content-generator"
+version = "1.0.0"
+description = "Modern AI Content Generator with Easy/Advanced modes for images and videos"
+authors = [
+    {name = "AI Content Generator Team"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+
+dependencies = [
+    # Core AI libraries
+    "torch>=2.1.0",
+    "torchvision>=0.16.0", 
+    "transformers>=4.36.0",
+    "diffusers>=0.25.0",
+    "accelerate>=0.25.0",
+    
+    # UI Framework
+    "gradio>=4.8.0",
+    
+    # Image and video processing
+    "pillow>=10.1.0",
+    "opencv-python>=4.8.1",
+    "imageio>=2.33.0",
+    "imageio-ffmpeg>=0.4.9",
+    
+    # Scientific computing
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    
+    # Model management
+    "huggingface-hub>=0.19.0",
+    "safetensors>=0.4.0",
+    
+    # Utilities
+    "tqdm>=4.66.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+# Hardware optimization (optional, may require compilation)
+optimization = [
+    "xformers>=0.0.23",
+    "bitsandbytes>=0.41.0",
+]
+
+# API server (optional)
+api = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+]
+
+# Development tools
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+# Experiment tracking (optional)
+tracking = [
+    "wandb>=0.16.0",
+]
+
+# Mid-tier models (6-12GB VRAM) - Auto-downloaded for compatible hardware
+mid-tier = [
+    # These are model identifiers that will be auto-downloaded
+    # Actual models are downloaded via Hugging Face Hub
+]
+
+# High-end models (16GB+ VRAM) - Downloaded on-demand for high-end hardware  
+high-end = [
+    # These are model identifiers that will be auto-downloaded
+    # Actual models are downloaded via Hugging Face Hub
+]
+
+# All optional dependencies
+all = [
+    "ai-content-generator[optimization,api,dev,tracking]"
+]
+
+[project.scripts]
+ai-generator = "app:main"
+
+[project.urls]
+Homepage = "https://github.com/your-username/ai-content-generator"
+Repository = "https://github.com/your-username/ai-content-generator"
+Issues = "https://github.com/your-username/ai-content-generator/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# UV-specific configuration
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "black>=23.0.0", 
+    "flake8>=6.0.0",
+]
+
+# Index configuration for PyTorch
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu118" 
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
