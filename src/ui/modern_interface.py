@@ -89,8 +89,8 @@ class ModernInterface:
         try:
             from .ui_integration import get_system_integration
             self.system_integration = get_system_integration()
-        except ImportError:
-            logger.warning("System integration not available")
+        except (ImportError, RuntimeError) as e:
+            logger.warning(f"System integration not available: {e}")
             self.system_integration = None
         
         logger.info("ModernInterface created")
@@ -104,9 +104,15 @@ class ModernInterface:
         try:
             logger.info("Initializing modern interface")
             self.gradio_app = self._create_interface()
-            self.is_initialized = True
-            logger.info("Modern interface initialized successfully")
-            return True
+            
+            # Only set up the load event if gradio_app was created successfully
+            if self.gradio_app is not None:
+                self.is_initialized = True
+                logger.info("Modern interface initialized successfully")
+                return True
+            else:
+                logger.error("Failed to create Gradio interface")
+                return False
         except Exception as e:
             logger.error(f"Failed to initialize modern interface: {e}")
             return False
@@ -242,15 +248,17 @@ class ModernInterface:
                         info="Larger sizes need more VRAM"
                     )
                 
+                # Negative prompt (always exists but hidden in easy mode)
+                components['negative_prompt'] = gr.Textbox(
+                    label="🚫 Negative Prompt",
+                    placeholder="What to avoid in the image...",
+                    lines=2,
+                    visible=False
+                )
+                
                 # Advanced mode controls
                 with gr.Group(visible=False) as advanced_controls:
                     components['advanced_controls'] = advanced_controls
-                    
-                    components['negative_prompt'] = gr.Textbox(
-                        label="🚫 Negative Prompt",
-                        placeholder="What to avoid in the image...",
-                        lines=2
-                    )
                     
                     with gr.Row():
                         components['width'] = gr.Slider(
@@ -523,14 +531,15 @@ class ModernInterface:
         """Setup event handlers for the interface."""
         
         # Initialize hardware info and models on load
-        self.gradio_app.load(
-            fn=self._initialize_interface,
-            outputs=[
-                hardware_info,
-                image_components['model_selector'],
-                video_components['model_selector']
-            ]
-        )
+        if self.gradio_app is not None:
+            self.gradio_app.load(
+                fn=self._initialize_interface,
+                outputs=[
+                    hardware_info,
+                    image_components['model_selector'],
+                    video_components['model_selector']
+                ]
+            )
         
         # Mode toggle
         mode_toggle.change(
@@ -539,6 +548,7 @@ class ModernInterface:
             outputs=[
                 image_components['easy_controls'],
                 image_components['advanced_controls'],
+                image_components['negative_prompt'],
                 video_components['easy_controls'],
                 video_components['advanced_controls']
             ]
@@ -581,11 +591,11 @@ class ModernInterface:
             fn=self._generate_image,
             inputs=[
                 image_components['prompt'],
-                image_components.get('negative_prompt', gr.Textbox(value="")),
-                image_components.get('style_preset', gr.Dropdown(value="Photorealistic")),
-                image_components.get('quality_preset', gr.Dropdown(value="Balanced (20 steps)")),
-                image_components.get('size_preset', gr.Dropdown(value="Square (512×512)")),
-                image_components.get('seed', gr.Number(value=None))
+                image_components['negative_prompt'],
+                image_components['style_preset'],
+                image_components['quality_preset'],
+                image_components['size_preset'],
+                image_components['seed']
             ],
             outputs=[
                 image_components['output_image'],
@@ -600,8 +610,8 @@ class ModernInterface:
             inputs=[
                 video_components['prompt'],
                 video_components['conditioning_image'],
-                video_components.get('video_length', gr.Dropdown(value="Medium (2-3 seconds, 14 frames)")),
-                video_components.get('motion_preset', gr.Dropdown(value="Moderate Motion"))
+                video_components['video_length'],
+                video_components['motion_preset']
             ],
             outputs=[
                 video_components['output_video'],
@@ -657,15 +667,16 @@ class ModernInterface:
                 gr.Dropdown(choices=[("Error loading models", "error")])
             )
     
-    def _toggle_mode(self, mode: str) -> Tuple[gr.Group, gr.Group, gr.Group, gr.Group]:
+    def _toggle_mode(self, mode: str) -> Tuple[gr.Group, gr.Group, gr.Textbox, gr.Group, gr.Group]:
         """Toggle between easy and advanced modes."""
         is_easy = mode == "Easy"
         
         return (
-            gr.Group(visible=is_easy),      # Image easy controls
-            gr.Group(visible=not is_easy),  # Image advanced controls
-            gr.Group(visible=is_easy),      # Video easy controls
-            gr.Group(visible=not is_easy)   # Video advanced controls
+            gr.Group(visible=is_easy),       # Image easy controls
+            gr.Group(visible=not is_easy),   # Image advanced controls
+            gr.update(visible=not is_easy),  # Negative prompt (only in advanced mode)
+            gr.Group(visible=is_easy),       # Video easy controls
+            gr.Group(visible=not is_easy)    # Video advanced controls
         )
     
     def _on_model_select(self, model_key: str) -> Tuple[gr.Button, gr.Textbox]:

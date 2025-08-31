@@ -17,8 +17,24 @@ from typing import Dict, List, Optional, Callable, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import json
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Setup thermal logging to file for temperatures over 60°C
+thermal_log_path = Path("logs/thermal_high_temps.log")
+thermal_log_path.parent.mkdir(exist_ok=True)
+
+thermal_file_handler = logging.FileHandler(thermal_log_path)
+thermal_file_handler.setLevel(logging.WARNING)
+thermal_formatter = logging.Formatter('%(asctime)s - THERMAL - %(levelname)s - %(message)s')
+thermal_file_handler.setFormatter(thermal_formatter)
+
+# Create dedicated thermal logger that only writes to file (no stdout)
+thermal_logger = logging.getLogger('thermal_file_only')
+thermal_logger.addHandler(thermal_file_handler)
+thermal_logger.setLevel(logging.WARNING)
+thermal_logger.propagate = False  # Prevent propagation to root logger (stdout)
 
 
 class ThermalState(Enum):
@@ -154,11 +170,20 @@ class ThermalMonitor:
                     if temp >= self.TEMP_PAUSE:
                         self.cooling_required[component] = True
                         self.last_hot_time[component] = current_time
-                        logger.warning(f"{component}: {temp:.1f}°C - COOLING REQUIRED until {self.COOLING_TARGET}°C")
+                        
+                        # Log to file if over 60°C, otherwise just to console
+                        if temp > 60.0:
+                            thermal_logger.warning(f"{component}: {temp:.1f}°C - COOLING REQUIRED until {self.COOLING_TARGET}°C")
+                        else:
+                            logger.warning(f"{component}: {temp:.1f}°C - COOLING REQUIRED until {self.COOLING_TARGET}°C")
                     
                     # Check if component has cooled sufficiently
                     elif temp <= self.COOLING_TARGET and self.cooling_required.get(component, False):
                         self.cooling_required[component] = False
+                        
+                        # Log cooling success to file only if temperature was previously logged to file
+                        if temp > 60.0:
+                            thermal_logger.info(f"{component}: {temp:.1f}°C - COOLED SUFFICIENTLY, resuming operations")
                         logger.info(f"{component}: {temp:.1f}°C - COOLED SUFFICIENTLY, resuming operations")
                     
                     # Classify temperature state with hysteresis
@@ -174,10 +199,16 @@ class ThermalMonitor:
                     
                     self.thermal_readings[component] = reading
                     
-                    # Log temperature changes
+                    # Log temperature changes - only to file if over 60°C
                     if state != ThermalState.SAFE:
                         cooling_status = " (COOLING REQUIRED)" if self.cooling_required.get(component, False) else ""
-                        logger.warning(f"{component}: {temp:.1f}°C ({state.value}){cooling_status}")
+                        
+                        if temp > 60.0:
+                            # Only log to file, not stdout
+                            thermal_logger.warning(f"{component}: {temp:.1f}°C ({state.value}){cooling_status}")
+                        else:
+                            # Log to stdout for temperatures under 60°C
+                            logger.warning(f"{component}: {temp:.1f}°C ({state.value}){cooling_status}")
                 
                 # Check for emergency conditions
                 self._check_emergency_conditions()
@@ -521,6 +552,9 @@ class ThermalMonitor:
         # Check for critical/emergency temperatures only
         for reading in valid_readings.values():
             if reading.state in [ThermalState.CRITICAL, ThermalState.EMERGENCY]:
+                # Always log critical temperatures to file
+                thermal_logger.error(f"CRITICAL: {reading.component} at {reading.temperature_c:.1f}°C - too hot for startup")
+                # Also log to stdout for critical temperatures (safety requirement)
                 logger.error(f"CRITICAL: {reading.component} at {reading.temperature_c:.1f}°C - too hot for startup")
                 return False
         
